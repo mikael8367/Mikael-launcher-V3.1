@@ -407,6 +407,8 @@ public class MikaelHomeActivity extends BaseActivity {
             filtered.sort((a,b) -> Boolean.compare(!isVersionInstalled(a.id), !isVersionInstalled(b.id)));
         }
 
+        // Do not cap this list: the Mojang manifest can contain hundreds of releases,
+        // snapshots and legacy entries. Every entry returned by the Core is displayed.
         String[] items = new String[filtered.size()];
         for (int i=0;i<filtered.size();i++) {
             JVersionList.Version v=filtered.get(i);
@@ -415,7 +417,7 @@ public class MikaelHomeActivity extends BaseActivity {
         }
 
         new AlertDialog.Builder(this)
-                .setTitle(category==0 ? "⭐ Todas as versões" : category==1 ? "✅ Releases" : category==2 ? "🧪 Snapshots" : "🔬 Beta / antigas")
+                .setTitle(category==0 ? "⭐ Todas as versões (" + filtered.size() + ")" : category==1 ? "✅ Releases (" + filtered.size() + ")" : category==2 ? "🧪 Snapshots (" + filtered.size() + ")" : "🔬 Beta / antigas (" + filtered.size() + ")")
                 .setItems(items, (d,w) -> selectVersion(filtered.get(w)))
                 .setNegativeButton("Voltar", (d,w) -> showVersions())
                 .show();
@@ -430,7 +432,8 @@ public class MikaelHomeActivity extends BaseActivity {
         if (version == null || version.id == null) return;
         Instance instance = ensureInstance();
         if (instance == null) return;
-        instance.versionId = version.id;
+        String normalizedId = MoJsonExtras.normalizeVersionId(version.id);
+        instance.versionId = normalizedId == null || normalizedId.isEmpty() ? version.id : normalizedId;
         instance.maybeWrite();
         prefs.edit().putString("mikael_version_type", version.type == null ? "" : version.type).apply();
         refreshDashboard();
