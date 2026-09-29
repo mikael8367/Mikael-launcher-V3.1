@@ -410,7 +410,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private int getInstanceRam(Instance instance) {
         if (instance == null || instance.mInstanceRoot == null) return LauncherPreferences.PREF_RAM_ALLOCATION;
-        return prefs.getInt("instance_ram_" + instance.mInstanceRoot.getName(), LauncherPreferences.PREF_RAM_ALLOCATION);
+        return prefs.getInt("instance_ram_" + MoJsonExtras.normalizeVersionId(instance.versionId), LauncherPreferences.PREF_RAM_ALLOCATION);
     }
 
     private void editInstanceName(Instance instance) {
