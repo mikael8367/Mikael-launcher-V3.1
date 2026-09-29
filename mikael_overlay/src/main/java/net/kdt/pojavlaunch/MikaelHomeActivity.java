@@ -79,20 +79,22 @@ public class MikaelHomeActivity extends BaseActivity {
     private final ActivityResultLauncher<String[]> backgroundPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri == null || prefs == null) return;
-                try {
-                    File target = new File(getFilesDir(), "mikael_background_image");
-                    try (InputStream in = getContentResolver().openInputStream(uri);
-                         OutputStream out = new java.io.FileOutputStream(target)) {
-                        if (in == null) throw new IOException("Imagem indisponível");
-                        byte[] buffer = new byte[8192];
-                        int read;
-                        while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                new Thread(() -> {
+                    try {
+                        File target = new File(getFilesDir(), "mikael_background_image");
+                        try (InputStream in = getContentResolver().openInputStream(uri);
+                             OutputStream out = new java.io.FileOutputStream(target)) {
+                            if (in == null) throw new IOException("Imagem indisponível");
+                            byte[] buffer = new byte[8192];
+                            int read;
+                            while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                        }
+                        prefs.edit().putString("mikael_background_file", target.getAbsolutePath()).remove("mikael_background_uri").apply();
+                        runOnUiThread(this::applyBackground);
+                    } catch (Throwable e) {
+                        showError("Não foi possível salvar o fundo: " + safe(e));
                     }
-                    prefs.edit().putString("mikael_background_file", target.getAbsolutePath()).remove("mikael_background_uri").apply();
-                    applyBackground();
-                } catch (Throwable e) {
-                    showError("Não foi possível salvar o fundo: " + safe(e));
-                }
+                }, "mikael-background-copy").start();
             });
 
     private final ProgressListener progressListener = new ProgressListener() {
