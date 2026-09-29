@@ -37,6 +37,7 @@ PY
 # Remove unused upstream Pojav branding images from the launcher package.
 rm -f "$POJAV/src/main/res/drawable/ic_pojav_full.webp"
 rm -f "$POJAV/src/main/res/drawable/ic_setting_sign_in_background.webp"
+rm -f "$POJAV/src/main/assets/pojavlauncher.png"
 
 python3 - "$POJAV/src/main/AndroidManifest.xml" <<'PY'
 import re, sys
