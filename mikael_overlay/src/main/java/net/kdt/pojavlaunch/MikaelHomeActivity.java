@@ -700,7 +700,7 @@ public class MikaelHomeActivity extends BaseActivity {
         if(instance==null){showError("Perfil não disponível.");return;}
         String[] items={
                 "Escala de renderização: "+LauncherPreferences.DEFAULT_PREF.getInt("resolutionRatio",100)+"%",
-                "VSync: "+(LauncherPreferences.DEFAULT_PREF.getBoolean("force_vsync",false)?"Ligado":"Desligado"),
+                "VSync: "+readGameOption(instance,"enableVsync","false"),
                 "Tela cheia no Minecraft: "+readGameOption(instance,"fullscreen","true"),
                 "FPS máximo: "+readGameOption(instance,"maxFps","120"),
                 "Distância de renderização: "+readGameOption(instance,"renderDistance","12"),
@@ -708,12 +708,8 @@ public class MikaelHomeActivity extends BaseActivity {
         };
         new AlertDialog.Builder(this).setTitle("🎮 Minecraft").setItems(items,(d,w)->{
             if(w==0)chooseResolutionScale();
-            else if(w==1){
-                boolean next=!LauncherPreferences.DEFAULT_PREF.getBoolean("force_vsync",false);
-                LauncherPreferences.DEFAULT_PREF.edit().putBoolean("force_vsync",next).apply();
-                LauncherPreferences.loadPreferences(this);
-                showMinecraftSettings();
-            }else if(w==2)setGameOptionDialog(instance,"fullscreen",new String[]{"true","false"},"Tela cheia");
+            else if(w==1)setGameOptionDialog(instance,"enableVsync",new String[]{"true","false"},"VSync");
+            else if(w==2)setGameOptionDialog(instance,"fullscreen",new String[]{"true","false"},"Tela cheia");
             else if(w==3)setGameOptionDialog(instance,"maxFps",new String[]{"30","60","90","120","144","260"},"FPS máximo");
             else if(w==4)setGameOptionDialog(instance,"renderDistance",new String[]{"4","6","8","10","12","16","20"},"Distância de renderização");
             else setResolutionDialog(instance);
