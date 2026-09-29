@@ -6,7 +6,7 @@ Launcher Android para Minecraft Java Edition com interface própria em Landscape
 
 - `pojav-core/`: submódulo do PojavLauncher, mantendo o motor de Java, downloads, assets, natives, classpath, renderização, controles e execução do Minecraft.
 - `mikael_overlay/`: interface e integrações do Mikael Launcher aplicadas durante o build.
-- `.github/workflows/build-release.yml`: valida as fontes e executa lint no GitHub Actions sem gerar APK. O APK só deve ser gerado após autorização explícita para o build final.
+- `.github/workflows/build-release.yml`: compila, executa lint, gera o APK debug e publica o artefato do build.
 
 ## Compilar
 
