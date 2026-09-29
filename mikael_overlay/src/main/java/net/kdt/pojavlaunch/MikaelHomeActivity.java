@@ -5,6 +5,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -77,11 +78,21 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private final ActivityResultLauncher<String[]> backgroundPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri == null) return;
-                try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
-                catch (Throwable ignored) {}
-                prefs.edit().putString("mikael_background_uri", uri.toString()).apply();
-                applyBackground();
+                if (uri == null || prefs == null) return;
+                try {
+                    File target = new File(getFilesDir(), "mikael_background_image");
+                    try (InputStream in = getContentResolver().openInputStream(uri);
+                         OutputStream out = new java.io.FileOutputStream(target)) {
+                        if (in == null) throw new IOException("Imagem indisponível");
+                        byte[] buffer = new byte[8192];
+                        int read;
+                        while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                    }
+                    prefs.edit().putString("mikael_background_file", target.getAbsolutePath()).remove("mikael_background_uri").apply();
+                    applyBackground();
+                } catch (Throwable e) {
+                    showError("Não foi possível salvar o fundo: " + safe(e));
+                }
             });
 
     private final ProgressListener progressListener = new ProgressListener() {
@@ -98,7 +109,15 @@ public class MikaelHomeActivity extends BaseActivity {
         @Override public void onProgressEnded() {}
     };
 
-    @Override public boolean setFullscreen() { return false; }
+    @Override public boolean setFullscreen() { return prefs != null && prefs.getBoolean("fullscreen", false); }
+
+    private void applyDisplaySettings() {
+        String orientation = prefs.getString("orientation", "Landscape");
+        if ("Portrait".equals(orientation)) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        else if ("Automática".equals(orientation)) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+        else setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        Tools.setInsetsMode(this, setFullscreen(), shouldIgnoreNotch());
+    }
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -129,7 +148,11 @@ public class MikaelHomeActivity extends BaseActivity {
         bindNavigation();
         animateButtons();
         applyBackground();
+        applyDisplaySettings();
         refreshDashboard();
+        if (state == null && prefs.getBoolean("auto_start", false)) {
+            getWindow().getDecorView().postDelayed(this::playGame, 350);
+        }
     }
 
     @Override protected void onResume() { super.onResume(); refreshDashboard(); }
@@ -148,7 +171,10 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private String statusFor(int resid, int progress, Object[] args) {
-        if (resid == com.kdt.mcgui.ProgressLayout.UNPACK_RUNTIME.hashCode()) return "Preparando Java... " + progress + "%";
+        if (resid != -1) {
+            try { return getString(resid, args); } catch (Throwable ignored) {}
+        }
+        if (args != null && args.length > 0 && args[0] instanceof String) return (String) args[0] + " • " + progress + "%";
         return "Preparando Minecraft... " + progress + "%";
     }
 
@@ -234,6 +260,10 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void playGame() {
+        if (ProgressKeeper.hasOngoingTasks()) {
+            Toast.makeText(this, "Minecraft já está sendo preparado.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Account account = Accounts.getCurrent();
         if (account == null) { showAccounts(); return; }
         Instance instance = ensureInstance();
@@ -630,11 +660,18 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showDisplaySettings() {
-        String[] items={"Landscape (padrão)","Portrait","Automática","Tela cheia","Barra de navegação"};
+        String[] items={"Landscape (padrão)","Portrait","Automática","Tela cheia"};
         new AlertDialog.Builder(this).setTitle("🖥️ Tela").setItems(items,(d,w)->{
-            if(w<3){prefs.edit().putString("orientation",items[w]).apply(); Toast.makeText(this,"Orientação salva: "+items[w],Toast.LENGTH_SHORT).show();}
-            else if(w==3) togglePref("fullscreen","Tela cheia");
-            else showPendingSetting("Barra de navegação","O comportamento imersivo é controlado pelo GameActivity quando suportado pelo Android.");
+            if(w<3){
+                prefs.edit().putString("orientation",items[w].equals("Landscape (padrão)")?"Landscape":items[w]).apply();
+                applyDisplaySettings();
+                Toast.makeText(this,"Orientação aplicada.",Toast.LENGTH_SHORT).show();
+            } else {
+                boolean next=!prefs.getBoolean("fullscreen",false);
+                prefs.edit().putBoolean("fullscreen",next).apply();
+                applyDisplaySettings();
+                Toast.makeText(this,"Tela cheia: "+(next?"ativada":"desativada"),Toast.LENGTH_SHORT).show();
+            }
         }).show();
     }
 
@@ -647,7 +684,7 @@ public class MikaelHomeActivity extends BaseActivity {
     private void chooseThemeAndAnimation() {
         new AlertDialog.Builder(this).setTitle("🎨 Aparência").setItems(new String[]{"Automático","Escuro","Claro","Animações: todas","Animações: reduzidas","Animações: desativadas","Fundo personalizado"},(d,w)->{
             if(w<3){AppCompatDelegate.setDefaultNightMode(w==0?AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM:w==1?AppCompatDelegate.MODE_NIGHT_YES:AppCompatDelegate.MODE_NIGHT_NO);prefs.edit().putInt("theme",w).apply();}
-            else if(w<6){prefs.edit().putInt("animations",w-3).apply(); Toast.makeText(this,"Preferência de animação salva.",Toast.LENGTH_SHORT).show();}
+            else if(w<6){prefs.edit().putInt("animations",w-3).apply(); animateButtons(); Toast.makeText(this,"Preferência de animação aplicada.",Toast.LENGTH_SHORT).show();}
             else backgroundPicker.launch(new String[]{"image/*"});
         }).show();
     }
@@ -783,7 +820,21 @@ public class MikaelHomeActivity extends BaseActivity {
         }).setPositiveButton("Fechar",null).show();
     }
 
-    private void applyBackground(){ImageView image=findViewById(R.id.mikael_background);String value=prefs.getString("mikael_background_uri",null);if(image==null)return;if(value==null)image.setImageDrawable(new ColorDrawable(Color.TRANSPARENT));else try{image.setImageURI(Uri.parse(value));}catch(Throwable ignored){}}
+    private void applyBackground(){
+        ImageView image=findViewById(R.id.mikael_background);
+        if(image==null)return;
+        String value=prefs.getString("mikael_background_file",null);
+        if(value==null){
+            image.setImageResource(R.drawable.bg_mikael_gradient);
+            return;
+        }
+        File file=new File(value);
+        if(file.isFile()) image.setImageURI(Uri.fromFile(file));
+        else {
+            prefs.edit().remove("mikael_background_file").apply();
+            image.setImageResource(R.drawable.bg_mikael_gradient);
+        }
+    }
     private String safe(Throwable t){return t==null?"erro desconhecido":t.getMessage()==null?t.getClass().getSimpleName():t.getMessage();}
     private void showError(String message){
         runOnUiThread(() -> {
