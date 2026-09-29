@@ -79,6 +79,8 @@ public class MikaelHomeActivity extends BaseActivity {
         @Override public void onProgressStarted() { setLoading(0, "Preparando Minecraft..."); }
         @Override public void onProgressUpdated(int progress, int resid, Object... args) {
             runOnUiThread(() -> {
+                if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+                if (launchProgress == null || loadStatus == null) return;
                 launchProgress.setVisibility(View.VISIBLE);
                 launchProgress.setProgress(Math.max(0, Math.min(100, progress)));
                 loadStatus.setText(statusFor(resid, progress, args));
@@ -247,10 +249,21 @@ public class MikaelHomeActivity extends BaseActivity {
     private void launchAfterVersionList(Instance instance, String version) {
         setLoading(4, "Verificando arquivos...");
         new AsyncVersionList().getVersionList(list -> {
-            if (list == null || list.versions == null) { runOnUiThread(() -> showError("Falha ao obter a lista de versões.")); return; }
+            if (list == null || list.versions == null) {
+                runOnUiThread(() -> showError("Falha ao obter a lista de versões."));
+                return;
+            }
             JVersionList.Version selected = MoJsonExtras.getListedVersion(version);
+            if (selected == null) {
+                runOnUiThread(() -> showError("A versão " + version + " não foi encontrada na lista oficial."));
+                return;
+            }
             runOnUiThread(() -> setLoading(6, "Preparando Minecraft " + version + "..."));
-            new MoJsonDownloader().start(getAssets(), selected, version, new ContextAwareDoneListener(this, version));
+            try {
+                new MoJsonDownloader().start(getAssets(), selected, version, new ContextAwareDoneListener(this, version));
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Falha ao preparar a versão: " + safe(error)));
+            }
         });
     }
 
@@ -266,6 +279,8 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void setLoading(int progress, String status) {
         runOnUiThread(() -> {
+            if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+            if (launchProgress == null || loadStatus == null) return;
             launchProgress.setVisibility(View.VISIBLE);
             launchProgress.setProgress(Math.max(0, Math.min(100, progress)));
             loadStatus.setText(status);
