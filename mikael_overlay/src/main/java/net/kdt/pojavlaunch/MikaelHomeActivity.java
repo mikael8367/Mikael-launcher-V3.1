@@ -369,7 +369,7 @@ public class MikaelHomeActivity extends BaseActivity {
                 .setTitle("Versão selecionada")
                 .setMessage(version.id + "\nTipo: " + version.type + "\n\n" +
                         (isVersionInstalled(version.id) ? "✓ Esta versão já está instalada." : "○ Esta versão ainda não está instalada."))
-                .setPositiveButton("Jogar / instalar", (d,w) -> playMinecraft())
+                .setPositiveButton("Jogar / instalar", (d,w) -> playGame())
                 .setNegativeButton("OK", null)
                 .show();
     }
