@@ -219,7 +219,9 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private String storageSummary() {
         try {
-            StatFs fs = new StatFs(getExternalFilesDir(null).getAbsolutePath());
+            File external = getExternalFilesDir(null);
+            if (external == null) return "Armazenamento indisponível";
+            StatFs fs = new StatFs(external.getAbsolutePath());
             return "Livre: " + Tools.formatFileSize(fs.getAvailableBytes());
         } catch (Throwable e) { return "Armazenamento indisponível"; }
     }
@@ -461,9 +463,10 @@ public class MikaelHomeActivity extends BaseActivity {
     private void showSettings() {
         String[] values={"512 MB","1 GB","2 GB","3 GB","4 GB","6 GB","8 GB"};
         int total=Tools.getTotalDeviceMemory(this);
-        for(int i=0;i<values.length;i++)if(memory(values[i])>total)values[i]+=" • indisponível";
+        int safeMax = Math.max(512, total - 512);
+        for(int i=0;i<values.length;i++)if(memory(values[i])>safeMax)values[i]+=" • indisponível";
         new AlertDialog.Builder(this).setTitle("Configurações").setItems(values,(d,w)->{
-            int mb=memory(values[w]); if(mb>Math.max(512,total-512)){showError("RAM incompatível com a memória disponível.");return;}
+            int mb=memory(values[w].replace(" • indisponível","")); if(mb>safeMax){showError("RAM incompatível com a memória disponível. Deixe pelo menos 512 MB para o Android.");return;}
             LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation",mb).apply(); LauncherPreferences.loadPreferences(this); refreshDashboard();
         }).setNeutralButton("Tema",(d,w)->chooseTheme()).setNegativeButton("Plano de fundo",(d,w)->backgroundPicker.launch(new String[]{"image/*"})).setPositiveButton("Fechar",null).show();
     }
