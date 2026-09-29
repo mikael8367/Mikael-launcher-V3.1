@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><resources>
+<color name="mikael_bg_top">#07111F</color><color name="mikael_bg_mid">#0B1830</color><color name="mikael_bg_bottom">#101F37</color><color name="mikael_overlay">#B6070D18</color>
+<color name="mikael_card">#CC15243A</color><color name="mikael_card_stroke">#553C93FF</color><color name="mikael_nav">#66152238</color><color name="mikael_nav_pressed">#883C7EFF</color>
+<color name="mikael_play">#FF3D7EFF</color><color name="mikael_play_pressed">#FF2B5CB7</color><color name="mikael_play_stroke">#FF75B7FF</color>
+<color name="mikael_accent">#FF6EB6FF</color><color name="mikael_accent_soft">#FF8AD2FF</color><color name="mikael_text_primary">#FFF7FBFF</color><color name="mikael_text_secondary">#FFC7D5E5</color>
+<color name="mikael_button_text">#FFFFFFFF</color><color name="mikael_logo_dark">#FF0C1B2F</color><color name="mikael_logo_highlight">#FFBEE8FF</color>
+</resources>
