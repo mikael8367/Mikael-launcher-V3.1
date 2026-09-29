@@ -302,15 +302,43 @@ public class MikaelHomeActivity extends BaseActivity {
         new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
             if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
             if (list == null || list.versions == null) { showError("Não foi possível atualizar as versões."); return; }
-            int count = Math.min(80, list.versions.length);
-            String[] items = new String[count];
-            for (int i = 0; i < count; i++) items[i] = list.versions[i].id + " • " + list.versions[i].type;
-            new AlertDialog.Builder(this).setTitle("Versões do Minecraft").setItems(items, (d, which) -> {
-                Instance i = ensureInstance();
-                if (i != null) { i.versionId = list.versions[which].id; i.maybeWrite(); refreshDashboard(); }
-            }).setPositiveButton("Fechar", null).show();
+
+            String[] loaders = {"Vanilla", "OptiFine", "Forge", "Fabric", "Forge + OptiFine", "NeoForge", "Quilt", "Outros"};
+            new AlertDialog.Builder(this)
+                    .setTitle("Versões • Modloaders")
+                    .setItems(loaders, (dialog, which) -> showVersionLoader(list.versions, loaders[which]))
+                    .setPositiveButton("Fechar", null)
+                    .show();
             launchProgress.setVisibility(View.GONE);
         }));
+    }
+
+    private void showVersionLoader(JVersionList.Version[] versions, String loader) {
+        if (!"Vanilla".equals(loader)) {
+            new AlertDialog.Builder(this)
+                    .setTitle(loader)
+                    .setMessage("Este filtro está preparado na interface, mas o instalador desse modloader ainda não está integrado ao Launcher Core. Nenhum arquivo será alterado.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        }
+        int count = Math.min(80, versions.length);
+        String[] items = new String[count];
+        for (int i = 0; i < count; i++) {
+            String id = versions[i].id;
+            boolean installed = new File(Tools.DIR_HOME_VERSION, id + "/" + id + ".jar").isFile()
+                    && new File(Tools.DIR_HOME_VERSION, id + "/" + id + ".json").isFile();
+            items[i] = (installed ? "✓ " : "○ ") + id + " • " + versions[i].type;
+        }
+        new AlertDialog.Builder(this).setTitle("Vanilla • versões oficiais").setItems(items, (d, which) -> {
+            Instance instance = ensureInstance();
+            if (instance != null) {
+                instance.versionId = versions[which].id;
+                instance.maybeWrite();
+                prefs.edit().putString("mikael_version_loader", "Vanilla").apply();
+                refreshDashboard();
+            }
+        }).setPositiveButton("Fechar", null).show();
     }
 
     private void showAccounts() {
@@ -462,14 +490,217 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showSettings() {
-        String[] values={"512 MB","1 GB","2 GB","3 GB","4 GB","6 GB","8 GB"};
-        int total=Tools.getTotalDeviceMemory(this);
-        int safeMax = Math.max(512, total - 512);
-        for(int i=0;i<values.length;i++)if(memory(values[i])>safeMax)values[i]+=" • indisponível";
-        new AlertDialog.Builder(this).setTitle("Configurações").setItems(values,(d,w)->{
-            int mb=memory(values[w].replace(" • indisponível","")); if(mb>safeMax){showError("RAM incompatível com a memória disponível. Deixe pelo menos 512 MB para o Android.");return;}
-            LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation",mb).apply(); LauncherPreferences.loadPreferences(this); refreshDashboard();
-        }).setNeutralButton("Tema",(d,w)->chooseTheme()).setNegativeButton("Plano de fundo",(d,w)->backgroundPicker.launch(new String[]{"image/*"})).setPositiveButton("Fechar",null).show();
+        final String[] categories = {
+                "🎮 Jogo", "🧠 Memória / RAM", "☕ Java", "⚙️ JVM", "🎮 Minecraft",
+                "🖥️ Tela", "🕹️ Controles", "⌨️ Teclado e mouse", "🎨 Aparência",
+                "🌐 Rede / downloads", "📦 Versões", "🧩 Mods", "👤 Contas",
+                "🔐 Privacidade e segurança", "📁 Arquivos", "📝 Logs", "🛠️ Diagnóstico",
+                "🧹 Limpeza", "🔄 Atualizações", "ℹ️ Sobre", "🚨 Restaurar configurações", "💾 Backup"
+        };
+        new AlertDialog.Builder(this).setTitle("⚙️ Configurações")
+                .setItems(categories, (d, which) -> openSettingsCategory(which))
+                .setNegativeButton("Fechar", null).show();
+    }
+
+    private void openSettingsCategory(int which) {
+        switch (which) {
+            case 0: showGameSettings(); break;
+            case 1: showRamSettings(); break;
+            case 2: showJava(); break;
+            case 3: showJvmSettings(); break;
+            case 4: showMinecraftSettings(); break;
+            case 5: showDisplaySettings(); break;
+            case 6: showPendingSetting("Controles Touch", "O layout Touch do Pojav Core será usado aqui. Editor de posição/tamanho ainda não está conectado ao Core."); break;
+            case 7: showInputSettings(); break;
+            case 8: chooseThemeAndAnimation(); break;
+            case 9: showNetworkSettings(); break;
+            case 10: showVersionSettings(); break;
+            case 11: showModSettings(); break;
+            case 12: showAccounts(); break;
+            case 13: showPrivacySettings(); break;
+            case 14: showFilesSettings(); break;
+            case 15: showLogSettings(); break;
+            case 16: runDiagnostics(); break;
+            case 17: showCleanupSettings(); break;
+            case 18: showAbout("Atualizações"); break;
+            case 19: showAbout("Sobre"); break;
+            case 20: resetSettings(); break;
+            case 21: showPendingSetting("Backup", "A arquitetura de backup está preparada, mas a restauração automática ainda não está conectada para evitar sobrescrever dados sem confirmação."); break;
+        }
+    }
+
+    private void showGameSettings() {
+        String[] values = {"Versão padrão: " + selectedVersion.getText(), "Perfil padrão: perfil atual", "Diretório do Minecraft", "Iniciar automaticamente", "Fechar launcher ao iniciar"};
+        new AlertDialog.Builder(this).setTitle("🎮 Jogo").setItems(values, (d,w) -> {
+            if (w == 0) showVersions();
+            else if (w == 1) Toast.makeText(this, "O perfil selecionado é o perfil usado pelo botão JOGAR.", Toast.LENGTH_LONG).show();
+            else if (w == 2) openPath(Instances.loadSelectedInstance() == null ? Instances.SHARED_DATA_DIRECTORY : Instances.loadSelectedInstance().getGameDirectory());
+            else if (w == 3) togglePref("auto_start", "Iniciar automaticamente");
+            else if (w == 4) togglePref("close_on_start", "Fechar launcher ao iniciar");
+        }).show();
+    }
+
+    private void showRamSettings() {
+        String[] values = {"512 MB","1 GB","2 GB","3 GB","4 GB","6 GB","8 GB","Personalizado"};
+        int total = Tools.getTotalDeviceMemory(this), safeMax = Math.max(512, total - 512);
+        for (int i=0;i<values.length;i++) if (!"Personalizado".equals(values[i]) && memory(values[i]) > safeMax) values[i] += " • indisponível";
+        new AlertDialog.Builder(this).setTitle("🧠 Memória / RAM").setMessage("RAM total: " + total + " MB\nRAM disponível: " + getAvailableRamMb() + " MB\nRAM recomendada: " + Math.min(2048, safeMax) + " MB")
+                .setItems(values, (d,w) -> {
+                    if (w == values.length-1) { showError("Use um valor em MB pelo campo avançado quando esse recurso estiver disponível."); return; }
+                    int mb=memory(values[w].replace(" • indisponível",""));
+                    if(mb>safeMax){showError("Essa configuração pode causar instabilidade neste dispositivo.");return;}
+                    LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation",mb).apply();
+                    LauncherPreferences.loadPreferences(this); refreshDashboard();
+                }).show();
+    }
+
+    private int getAvailableRamMb() {
+        try { android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE); android.app.ActivityManager.MemoryInfo mi=new android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi); return (int)(mi.availMem/1048576L); } catch(Throwable e){return -1;}
+    }
+
+    private void showJvmSettings() {
+        boolean advanced=prefs.getBoolean("jvm_advanced",false);
+        new AlertDialog.Builder(this).setTitle("⚙️ JVM")
+                .setMessage("Modo JVM avançado: " + (advanced ? "ATIVADO" : "DESATIVADO") + "\n\nOs argumentos padrão continuam sendo gerenciados pelo Pojav Core.")
+                .setNeutralButton(advanced ? "Desativar" : "Ativar", (d,w)-> {
+                    prefs.edit().putBoolean("jvm_advanced",!advanced).apply();
+                    if(!advanced) showPendingSetting("Argumentos JVM", "Modo avançado ativado. A edição de argumentos personalizados será liberada somente quando estiver conectada ao campo real do Instance.");
+                }).setPositiveButton("Fechar",null).show();
+    }
+
+    private void showMinecraftSettings() {
+        showPendingSetting("🎮 Minecraft", "Resolução, escala, FPS, VSync, renderização e argumentos devem ser aplicados no processo GameActivity. A interface não mostra controles falsos enquanto esses campos não estiverem conectados ao Core.");
+    }
+
+    private void showDisplaySettings() {
+        String[] items={"Landscape (padrão)","Portrait","Automática","Tela cheia","Barra de navegação"};
+        new AlertDialog.Builder(this).setTitle("🖥️ Tela").setItems(items,(d,w)->{
+            if(w<3){prefs.edit().putString("orientation",items[w]).apply(); Toast.makeText(this,"Orientação salva: "+items[w],Toast.LENGTH_SHORT).show();}
+            else if(w==3) togglePref("fullscreen","Tela cheia");
+            else showPendingSetting("Barra de navegação","O comportamento imersivo é controlado pelo GameActivity quando suportado pelo Android.");
+        }).show();
+    }
+
+    private void showInputSettings() {
+        new AlertDialog.Builder(this).setTitle("⌨️ Teclado e mouse")
+                .setMessage("Teclado: detecção pelo Android\nMouse: detecção pelo Android\nControle: detecção pelo Android\n\nMapeamento e sensibilidade personalizados ainda dependem do editor de controles do Core.")
+                .setPositiveButton("Fechar",null).show();
+    }
+
+    private void chooseThemeAndAnimation() {
+        new AlertDialog.Builder(this).setTitle("🎨 Aparência").setItems(new String[]{"Automático","Escuro","Claro","Animações: todas","Animações: reduzidas","Animações: desativadas","Fundo personalizado"},(d,w)->{
+            if(w<3){AppCompatDelegate.setDefaultNightMode(w==0?AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM:w==1?AppCompatDelegate.MODE_NIGHT_YES:AppCompatDelegate.MODE_NIGHT_NO);prefs.edit().putInt("theme",w).apply();}
+            else if(w<6){prefs.edit().putInt("animations",w-3).apply(); Toast.makeText(this,"Preferência de animação salva.",Toast.LENGTH_SHORT).show();}
+            else backgroundPicker.launch(new String[]{"image/*"});
+        }).show();
+    }
+
+    private void showNetworkSettings() {
+        String[] items={"Downloads simultâneos: "+prefs.getInt("download_threads",2),"Baixar arquivos grandes somente no Wi‑Fi","Retomar downloads","Limpar downloads temporários"};
+        new AlertDialog.Builder(this).setTitle("🌐 Rede / downloads").setItems(items,(d,w)->{
+            if(w==0){prefs.edit().putInt("download_threads",prefs.getInt("download_threads",2)==2?1:2).apply();Toast.makeText(this,"Downloads simultâneos salvo.",Toast.LENGTH_SHORT).show();}
+            else if(w==1)togglePref("wifi_only","Somente Wi‑Fi");
+            else if(w==2)togglePref("resume_downloads","Retomar downloads");
+            else cleanTemporaryFiles();
+        }).show();
+    }
+
+    private void showVersionSettings() {
+        new AlertDialog.Builder(this).setTitle("📦 Versões").setMultiChoiceItems(new String[]{"Mostrar versões antigas","Mostrar snapshots","Mostrar instaladas primeiro","Verificar arquivos automaticamente","Reparar automaticamente","Confirmar antes de excluir"},new boolean[]{
+                prefs.getBoolean("old_versions",false),prefs.getBoolean("snapshots",false),prefs.getBoolean("installed_first",true),prefs.getBoolean("verify_versions",true),prefs.getBoolean("repair_versions",false),prefs.getBoolean("confirm_delete_version",true)},(d,w,checked)->prefs.edit().putBoolean(new String[]{"old_versions","snapshots","installed_first","verify_versions","repair_versions","confirm_delete_version"}[w],checked).apply()).setPositiveButton("Fechar",null).show();
+    }
+
+    private void showModSettings() {
+        new AlertDialog.Builder(this).setTitle("🧩 Mods").setMultiChoiceItems(new String[]{"Detectar incompatíveis","Detectar conflitos","Mostrar avisos","Verificar versão do Minecraft","Ativar/desativar mods"},new boolean[]{
+                prefs.getBoolean("detect_incompatible_mods",true),prefs.getBoolean("detect_mod_conflicts",true),prefs.getBoolean("mod_warnings",true),prefs.getBoolean("check_mod_version",true),true},(d,w,checked)->{
+                    if(w<4) prefs.edit().putBoolean(new String[]{"detect_incompatible_mods","detect_mod_conflicts","mod_warnings","check_mod_version"}[w],checked).apply();
+                    else showMods();
+                }).setNeutralButton("Abrir mods", (d,w)->showMods()).setPositiveButton("Fechar",null).show();
+    }
+
+    private void showPrivacySettings() {
+        new AlertDialog.Builder(this).setTitle("🔐 Privacidade e segurança")
+                .setItems(new String[]{"Limpar sessões de autenticação","Informações de privacidade"},(d,w)->{
+                    if(w==0)new AlertDialog.Builder(this).setTitle("Limpar sessões?").setMessage("Isso remove as contas salvas pelo launcher.").setNegativeButton("Cancelar",null).setPositiveButton("Limpar",(x,y)->{try{Accounts all=Accounts.load();for(Account a:new ArrayList<>(all.accounts))Accounts.delete(a);refreshDashboard();}catch(Throwable ignored){}}).show();
+                    else showAbout("Privacidade");
+                }).show();
+    }
+
+    private void showFilesSettings() {
+        Instance i=Instances.loadSelectedInstance();File root=i==null?Instances.SHARED_DATA_DIRECTORY:i.getGameDirectory();
+        new AlertDialog.Builder(this).setTitle("📁 Arquivos").setItems(new String[]{"Minecraft","Mods","Saves","Resourcepacks","Screenshots","Logs","Ver espaço utilizado"},(d,w)->{
+            if(w<6){File[] dirs={root,new File(root,"mods"),new File(root,"saves"),new File(root,"resourcepacks"),new File(root,"screenshots"),new File(root,"logs")};openPath(dirs[w]);}
+            else Toast.makeText(this,storageSummary(),Toast.LENGTH_LONG).show();
+        }).show();
+    }
+
+    private void showLogSettings() {
+        new AlertDialog.Builder(this).setTitle("📝 Logs").setItems(new String[]{"Normal","Detalhado","Debug","Salvar logs","Limitar tamanho","Limpar logs antigos"},(d,w)->{
+            if(w<3)prefs.edit().putInt("log_level",w).apply();
+            else if(w==3)togglePref("save_logs","Salvar logs");
+            else if(w==4)showPendingSetting("Limite de logs","O limite será aplicado quando o coletor de logs estiver integrado ao Core.");
+            else cleanLogs();
+        }).show();
+    }
+
+    private void runDiagnostics() {
+        Instance i=Instances.loadSelectedInstance(); String version=i==null?"Nenhuma":i.versionId;
+        StringBuilder b=new StringBuilder();
+        b.append("Modelo: ").append(android.os.Build.MANUFACTURER).append(" ").append(android.os.Build.MODEL).append("\n");
+        b.append("Android: ").append(android.os.Build.VERSION.RELEASE).append(" (API ").append(android.os.Build.VERSION.SDK_INT).append(")\n");
+        b.append("Arquitetura: ").append(System.getProperty("os.arch")).append("\n");
+        b.append("RAM: ").append(Tools.getTotalDeviceMemory(this)).append(" MB\n");
+        b.append("Armazenamento: ").append(storageSummary()).append("\n");
+        b.append("Java: ").append(javaSummary(i)).append("\n");
+        b.append("Versão: ").append(version).append("\n");
+        b.append("Conta: ").append(Accounts.getCurrent()==null?"Nenhuma":Accounts.getCurrent().username).append("\n");
+        b.append("Java runtime: ").append(MultiRTUtils.getRuntimes().size()).append(" runtime(s) detectado(s)\n");
+        b.append("Diretório: ").append((i==null?Instances.SHARED_DATA_DIRECTORY:i.getGameDirectory()).getAbsolutePath());
+        new AlertDialog.Builder(this).setTitle("🛠️ Diagnóstico do Launcher").setMessage(b.toString()).setPositiveButton("Fechar",null).setNeutralButton("Verificar arquivos",(d,w)->{
+            String status=installSummary(version);
+            showError(status.contains("pronta")?"Tudo funcionando corretamente para a instalação local.":"A versão selecionada ainda precisa ser preparada pelo JOGAR.");
+        }).show();
+    }
+
+    private void showCleanupSettings() {
+        new AlertDialog.Builder(this).setTitle("🧹 Limpeza").setItems(new String[]{"Limpar cache","Limpar downloads incompletos","Limpar logs antigos","Limpar temporários"},(d,w)->{
+            if(w==0)try{deleteDir(getCacheDir());Toast.makeText(this,"Cache limpo.",Toast.LENGTH_SHORT).show();}catch(Throwable ignored){}
+            else if(w==1)cleanTemporaryFiles();
+            else if(w==2)cleanLogs();
+            else cleanTemporaryFiles();
+        }).show();
+    }
+
+    private void cleanTemporaryFiles() {
+        File root=Instances.SHARED_DATA_DIRECTORY; File[] files=root.listFiles((f,n)->n.endsWith(".part")||n.endsWith(".tmp")||n.endsWith(".download"));
+        int removed=0;if(files!=null)for(File f:files)if(f.delete())removed++;
+        Toast.makeText(this,"Temporários removidos: "+removed,Toast.LENGTH_SHORT).show();
+    }
+
+    private void cleanLogs() {
+        Instance i=Instances.loadSelectedInstance();File dir=new File((i==null?Instances.SHARED_DATA_DIRECTORY:i.getGameDirectory()),"logs");int removed=0;
+        File[] files=dir.listFiles();if(files!=null)for(File f:files)if(f.isFile()&&!f.getName().equals("latest.log")&&f.delete())removed++;
+        Toast.makeText(this,"Logs antigos removidos: "+removed,Toast.LENGTH_SHORT).show();
+    }
+
+    private void deleteDir(File dir){File[] files=dir.listFiles();if(files!=null)for(File f:files){if(f.isDirectory())deleteDir(f);else f.delete();}dir.delete();}
+
+    private void togglePref(String key,String label){boolean next=!prefs.getBoolean(key,false);prefs.edit().putBoolean(key,next).apply();Toast.makeText(this,label+": "+(next?"Ativado":"Desativado"),Toast.LENGTH_SHORT).show();}
+
+    private void showPendingSetting(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK",null).show();}
+
+    private void showAbout(String title) {
+        new AlertDialog.Builder(this).setTitle(title).setMessage("Mikael Launcher V3.1\n\nCódigo de terceiros: PojavLauncher e bibliotecas licenciadas conforme os arquivos de licença do projeto.\n\nAs configurações pendentes não são apresentadas como funcionais até estarem ligadas ao Launcher Core.").setPositiveButton("Fechar",null).show();
+    }
+
+    private void resetSettings() {
+        new AlertDialog.Builder(this).setTitle("🚨 Restaurar configurações").setMessage("Isso restaurará as configurações do launcher. Seus mundos, mods e arquivos do Minecraft não serão apagados.")
+                .setNegativeButton("Cancelar",null).setPositiveButton("Restaurar",(d,w)->{
+                    prefs.edit().clear().apply();
+                    LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation",1024).apply();
+                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                    refreshDashboard();
+                }).show();
     }
 
     private int memory(String value){String first=value.split(" ")[0];return value.contains("GB")?Integer.parseInt(first)*1024:Integer.parseInt(first);}
