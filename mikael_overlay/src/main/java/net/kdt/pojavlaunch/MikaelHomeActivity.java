@@ -160,6 +160,7 @@ public class MikaelHomeActivity extends BaseActivity {
     @Override protected void onResume() { super.onResume(); refreshDashboard(); }
 
     @Override protected void onDestroy() {
+        saveAllSettingsNow();
         String[] keys = {
                 com.kdt.mcgui.ProgressLayout.DOWNLOAD_GAME,
                 com.kdt.mcgui.ProgressLayout.UNPACK_RUNTIME,
@@ -265,7 +266,26 @@ public class MikaelHomeActivity extends BaseActivity {
                 ? "Instalação: pronta" : "Instalação: preparar no JOGAR";
     }
 
+    /** Persist launcher and Pojav preferences before leaving the launcher or starting Minecraft. */
+    private void saveAllSettingsNow() {
+        try {
+            if (prefs != null) prefs.edit().commit();
+            LauncherPreferences.DEFAULT_PREF.edit().commit();
+            try { LauncherPreferences.loadPreferences(this); } catch (Throwable ignored) {}
+            Instance selected = Instances.loadSelectedInstance();
+            if (selected != null) selected.maybeWrite();
+        } catch (Throwable ignored) {
+            // Saving must never prevent Minecraft from starting or the Activity from closing.
+        }
+    }
+
+    @Override protected void onPause() {
+        saveAllSettingsNow();
+        super.onPause();
+    }
+
     private void playGame() {
+        saveAllSettingsNow();
         if (ProgressKeeper.hasOngoingTasks()) {
             Toast.makeText(this, "Minecraft já está sendo preparado.", Toast.LENGTH_SHORT).show();
             return;
