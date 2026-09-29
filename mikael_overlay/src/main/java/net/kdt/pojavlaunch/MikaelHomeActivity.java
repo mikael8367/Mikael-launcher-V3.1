@@ -560,7 +560,8 @@ public class MikaelHomeActivity extends BaseActivity {
             byte[] buffer = new byte[8192];
             int read;
             while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-            runOnUiThread(() -> Toast.makeText(this, "Mod importado: " + target.getName(), Toast.LENGTH_SHORT).show());
+            final String importedName = target.getName();
+            runOnUiThread(() -> Toast.makeText(this, "Mod importado: " + importedName, Toast.LENGTH_SHORT).show());
         } catch (Throwable e) {
             if (target.isFile()) target.delete();
             showError("Falha ao importar o mod: " + safe(e));
