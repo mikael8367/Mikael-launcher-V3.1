@@ -1,0 +1,3 @@
+[submodule "pojav-core"]
+	path = pojav-core
+	url = https://github.com/TeamPojavLauncher/PojavLauncher.git
