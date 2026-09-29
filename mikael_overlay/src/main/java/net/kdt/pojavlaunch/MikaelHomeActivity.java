@@ -77,6 +77,16 @@ public class MikaelHomeActivity extends BaseActivity {
                 importMod(uri);
             });
 
+    private final ActivityResultLauncher<String[]> modloaderPicker =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri == null) return;
+                try {
+                    Tools.launchModInstaller(this, uri);
+                } catch (Throwable e) {
+                    showError("Não foi possível abrir o instalador: " + safe(e));
+                }
+            });
+
     private final ActivityResultLauncher<String[]> backgroundPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri == null || prefs == null) return;
@@ -493,7 +503,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void openGenericModloaderInstaller() {
-        modPicker.launch(new String[]{"application/java-archive", "application/octet-stream"});
+        modloaderPicker.launch(new String[]{"application/java-archive", "application/octet-stream"});
     }
 
     private void showAccounts() {
@@ -621,13 +631,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void importMod(Uri uri) {
-        new Thread(() -> {
-            try {
-                Tools.launchModInstaller(this, uri);
-            } catch (Throwable e) {
-                importModInternal(uri);
-            }
-        }, "mikael-modloader-import").start();
+        new Thread(() -> importModInternal(uri), "mikael-mod-import").start();
     }
 
     private void importModInternal(Uri uri) {
