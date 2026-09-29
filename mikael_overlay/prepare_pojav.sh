@@ -90,14 +90,13 @@ for raw in sys.argv[1:]:
 PY
 
 python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/authenticator/accounts/Account.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/authenticator/accounts/Accounts.java" <<'PY'
-import sys
+import re, sys
 from pathlib import Path
-account=Path(sys.argv[1]); s=account.read_text(encoding='utf-8')
-old='''    public void save() throws IOException {
-        FileUtils.ensureParentDirectory(mSaveLocation);
-        JSONUtils.writeToFile(mSaveLocation, this);
-    }'''
-new='''    public void save() throws IOException {
+
+account=Path(sys.argv[1])
+s=account.read_text(encoding='utf-8')
+old=r'''public void save\(\) throws IOException \{\s*FileUtils.ensureParentDirectory\(mSaveLocation\);\s*JSONUtils.writeToFile\(mSaveLocation, this\);\s*\}'''
+new='''public void save() throws IOException {
         FileUtils.ensureParentDirectory(mSaveLocation);
         String originalAccessToken = accessToken;
         String originalRefreshToken = refreshToken;
@@ -110,28 +109,24 @@ new='''    public void save() throws IOException {
             refreshToken = originalRefreshToken;
         }
     }'''
-if old not in s: raise SystemExit('Account.save anchor not found')
-s=s.replace(old,new)
-old2='''            if(account == null) return null;
-            account.mSaveLocation = mSaveLocation;
-            return account;'''
-new2='''            if(account == null) return null;
-            account.accessToken = net.kdt.pojavlaunch.AccountSecureStore.restore(account.accessToken);
+s,n=re.subn(old,new,s,count=1,flags=re.S)
+if n != 1: raise SystemExit('Account.save anchor not found')
+old2=r'''(if\(account == null\) return null;\s*)(account\.mSaveLocation = mSaveLocation;)'''
+new2=r'''\1account.accessToken = net.kdt.pojavlaunch.AccountSecureStore.restore(account.accessToken);
             account.refreshToken = net.kdt.pojavlaunch.AccountSecureStore.restore(account.refreshToken);
-            account.mSaveLocation = mSaveLocation;
-            return account;'''
-if old2 in s: s=s.replace(old2,new2)
+            \2'''
+s,n=re.subn(old2,new2,s,count=1,flags=re.S)
+if n != 1: raise SystemExit('Account.reload anchor not found')
 account.write_text(s,encoding='utf-8')
 
-accounts=Path(sys.argv[2]); s=accounts.read_text(encoding='utf-8')
-anchor='''        if(acc == null) return null;
-        acc.mSaveLocation = source;'''
-repl='''        if(acc == null) return null;
-        acc.accessToken = net.kdt.pojavlaunch.AccountSecureStore.restore(acc.accessToken);
+accounts=Path(sys.argv[2])
+s=accounts.read_text(encoding='utf-8')
+old3=r'''(\s*if\(acc == null\) return null;\s*)(acc\.mSaveLocation = source;)'''
+new3=r'''\1acc.accessToken = net.kdt.pojavlaunch.AccountSecureStore.restore(acc.accessToken);
         acc.refreshToken = net.kdt.pojavlaunch.AccountSecureStore.restore(acc.refreshToken);
-        acc.mSaveLocation = source;'''
-if anchor not in s: raise SystemExit('Accounts.load anchor not found')
-s=s.replace(anchor,repl)
+        \2'''
+s,n=re.subn(old3,new3,s,count=1,flags=re.S)
+if n != 1: raise SystemExit('Accounts.loadAccount anchor not found')
 accounts.write_text(s,encoding='utf-8')
 PY
 
