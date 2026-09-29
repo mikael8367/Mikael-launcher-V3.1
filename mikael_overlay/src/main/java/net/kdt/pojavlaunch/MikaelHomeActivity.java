@@ -50,6 +50,8 @@ import net.kdt.pojavlaunch.utils.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +67,12 @@ public class MikaelHomeActivity extends BaseActivity {
     private SharedPreferences prefs;
     private AlertDialog authDialog;
     private WebView authWebView;
+
+    private final ActivityResultLauncher<String[]> modPicker =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri == null) return;
+                importMod(uri);
+            });
 
     private final ActivityResultLauncher<String[]> backgroundPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -399,8 +407,45 @@ public class MikaelHomeActivity extends BaseActivity {
         Arrays.sort(files, Comparator.comparing(File::getName,String.CASE_INSENSITIVE_ORDER));
         String[] items=new String[files.length]; for(int i=0;i<files.length;i++)items[i]=(files[i].getName().endsWith(".disabled")?"⏸ ":"▶ ")+files[i].getName();
         final File[] copy=files;
-        new AlertDialog.Builder(this).setTitle("Mods").setItems(items,(d,w)->{File f=copy[w];if(f.getName().endsWith(".disabled"))f.renameTo(new File(dir,f.getName().substring(0,f.getName().length()-9)));else f.renameTo(new File(dir,f.getName()+".disabled"));showMods();})
-                .setNeutralButton("Abrir pasta",(d,w)->openPath(dir)).setPositiveButton("Fechar",null).show();
+        new AlertDialog.Builder(this).setTitle("Mods").setItems(items,(d,w)->{
+                    File f=copy[w];
+                    File target = f.getName().endsWith(".disabled")
+                            ? new File(dir,f.getName().substring(0,f.getName().length()-9))
+                            : new File(dir,f.getName()+".disabled");
+                    if (!f.renameTo(target)) Toast.makeText(this,"Não foi possível alterar o estado do mod.",Toast.LENGTH_SHORT).show();
+                    showMods();
+                })
+                .setNeutralButton("Importar .jar",(d,w)->modPicker.launch(new String[]{"application/java-archive","application/octet-stream"}))
+                .setNegativeButton("Abrir pasta",(d,w)->openPath(dir))
+                .setPositiveButton("Fechar",null).show();
+    }
+
+    private void importMod(Uri uri) {
+        Instance instance = Instances.loadSelectedInstance();
+        File root = instance == null ? Instances.SHARED_DATA_DIRECTORY : instance.getGameDirectory();
+        File dir = new File(root, "mods");
+        if (!dir.exists() && !dir.mkdirs()) {
+            showError("Não foi possível criar a pasta de mods.");
+            return;
+        }
+        String name = "imported-mod.jar";
+        String display = uri.getLastPathSegment();
+        if (display != null && display.contains("/")) display = display.substring(display.lastIndexOf('/') + 1);
+        if (display != null && display.toLowerCase().endsWith(".jar")) name = display.replaceAll("[^A-Za-z0-9._-]", "_");
+        File target = new File(dir, name);
+        int suffix = 2;
+        while (target.exists()) target = new File(dir, name.replace(".jar", "-" + suffix++ + ".jar"));
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream out = new java.io.FileOutputStream(target)) {
+            if (in == null) throw new IOException("Arquivo não disponível");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+            Toast.makeText(this, "Mod importado: " + target.getName(), Toast.LENGTH_SHORT).show();
+        } catch (Throwable e) {
+            if (target.isFile()) target.delete();
+            showError("Falha ao importar o mod: " + safe(e));
+        }
     }
 
     private void showJava() {
