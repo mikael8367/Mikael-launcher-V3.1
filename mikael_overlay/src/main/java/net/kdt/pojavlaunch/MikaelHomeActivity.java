@@ -203,6 +203,7 @@ public class MikaelHomeActivity extends BaseActivity {
         click(R.id.nav_files, v -> showFiles());
         click(R.id.nav_logs, v -> showLogs());
         click(R.id.play_button, v -> playGame());
+        click(R.id.installed_versions_button, v -> showInstalledVersions());
         click(R.id.account_card, v -> showAccounts());
     }
 
@@ -213,7 +214,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void animateButtons() {
         int mode = prefs == null ? 0 : prefs.getInt("animations", 0);
-        int[] ids = {R.id.play_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
+        int[] ids = {R.id.play_button,R.id.installed_versions_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
         for (int id : ids) {
             View view = findViewById(id);
             if (view == null) continue;
@@ -374,6 +375,60 @@ public class MikaelHomeActivity extends BaseActivity {
             launchProgress.setProgress(Math.max(0, Math.min(100, progress)));
             loadStatus.setText(status);
         });
+    }
+
+    private void showInstalledVersions() {
+        File versionsDir = Tools.DIR_HOME_VERSION;
+        ArrayList<String> installed = new ArrayList<>();
+        if (versionsDir != null && versionsDir.isDirectory()) {
+            File[] dirs = versionsDir.listFiles(File::isDirectory);
+            if (dirs != null) {
+                for (File dir : dirs) {
+                    String id = dir.getName();
+                    if (!Tools.isValidString(id)) continue;
+                    File jar = new File(dir, id + ".jar");
+                    File json = new File(dir, id + ".json");
+                    if (jar.isFile() && json.isFile()) installed.add(id);
+                }
+            }
+        }
+        installed.sort((a,b) -> {
+            String current = Instances.loadSelectedInstance() == null ? "" :
+                    MoJsonExtras.normalizeVersionId(Instances.loadSelectedInstance().versionId);
+            if (a.equals(current)) return -1;
+            if (b.equals(current)) return 1;
+            return a.compareToIgnoreCase(b);
+        });
+        if (installed.isEmpty()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("📦 Versões instaladas")
+                    .setMessage("Nenhuma versão do Minecraft está instalada ainda. Use JOGAR para instalar a versão selecionada.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        }
+        String[] items = new String[installed.size()];
+        String current = Instances.loadSelectedInstance() == null ? "" :
+                MoJsonExtras.normalizeVersionId(Instances.loadSelectedInstance().versionId);
+        for (int i = 0; i < installed.size(); i++) {
+            String id = installed.get(i);
+            items[i] = id.equals(current) ? "✓ " + id + " • atual" : "○ " + id;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("📦 Versões instaladas (" + installed.size() + ")")
+                .setItems(items, (d, which) -> selectInstalledVersion(installed.get(which)))
+                .setNegativeButton("Fechar", null)
+                .show();
+    }
+
+    private void selectInstalledVersion(String versionId) {
+        if (!Tools.isValidString(versionId)) return;
+        Instance instance = ensureInstance();
+        if (instance == null) return;
+        instance.versionId = MoJsonExtras.normalizeVersionId(versionId);
+        instance.maybeWrite();
+        refreshDashboard();
+        Toast.makeText(this, "Versão selecionada: " + versionId, Toast.LENGTH_SHORT).show();
     }
 
     private void showVersions() {
