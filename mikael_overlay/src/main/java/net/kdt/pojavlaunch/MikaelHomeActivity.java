@@ -409,7 +409,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private int getInstanceRam(Instance instance) {
-        if (instance == null || instance.mInstanceRoot == null) return LauncherPreferences.PREF_RAM_ALLOCATION;
+        if (instance == null || instance.versionId == null) return LauncherPreferences.PREF_RAM_ALLOCATION;
         return prefs.getInt("instance_ram_" + MoJsonExtras.normalizeVersionId(instance.versionId), LauncherPreferences.PREF_RAM_ALLOCATION);
     }
 
@@ -460,7 +460,10 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void chooseInstanceRam(Instance instance) {
-        int total = getTotalRamMb();
+        android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+        am.getMemoryInfo(mi);
+        int total = (int) Math.min(Integer.MAX_VALUE, mi.totalMem / (1024L * 1024L));
         int safeMax = Math.max(512, total - 512);
         String[] values = {"512 MB","1024 MB","2048 MB","3072 MB","4096 MB","6144 MB","8192 MB","Personalizado"};
         int current = getInstanceRam(instance);
@@ -489,7 +492,7 @@ public class MikaelHomeActivity extends BaseActivity {
         try {
             int mb = Integer.parseInt(raw.trim());
             mb = Math.max(512, Math.min(safeMax, mb));
-            prefs.edit().putInt("instance_ram_" + instance.mInstanceRoot.getName(), mb).apply();
+            prefs.edit().putInt("instance_ram_" + MoJsonExtras.normalizeVersionId(instance.versionId), mb).apply();
             Toast.makeText(this, "RAM da versão: " + mb + " MB", Toast.LENGTH_SHORT).show();
             showVersionConfiguration();
         } catch (Throwable e) { showError("RAM inválida."); }
@@ -529,7 +532,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showInstalledVersions() {
-        File versionsDir = Tools.DIR_HOME_VERSION;
+        File versionsDir = new File(Tools.DIR_HOME_VERSION);
         ArrayList<String> installed = new ArrayList<>();
         if (versionsDir != null && versionsDir.isDirectory()) {
             File[] dirs = versionsDir.listFiles(File::isDirectory);
