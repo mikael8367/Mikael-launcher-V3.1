@@ -198,13 +198,17 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void animateButtons() {
+        int mode = prefs == null ? 0 : prefs.getInt("animations", 0);
         int[] ids = {R.id.play_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
         for (int id : ids) {
             View view = findViewById(id);
             if (view == null) continue;
+            if (mode == 2) { view.setOnTouchListener(null); continue; }
+            final long downDuration = mode == 1 ? 45 : 80;
+            final long upDuration = mode == 1 ? 70 : 120;
             view.setOnTouchListener((v, e) -> {
-                if (e.getActionMasked() == MotionEvent.ACTION_DOWN) v.animate().scaleX(.97f).scaleY(.97f).setDuration(80).start();
-                if (e.getActionMasked() == MotionEvent.ACTION_UP || e.getActionMasked() == MotionEvent.ACTION_CANCEL) v.animate().scaleX(1f).scaleY(1f).setDuration(120).start();
+                if (e.getActionMasked() == MotionEvent.ACTION_DOWN) v.animate().scaleX(.97f).scaleY(.97f).setDuration(downDuration).start();
+                if (e.getActionMasked() == MotionEvent.ACTION_UP || e.getActionMasked() == MotionEvent.ACTION_CANCEL) v.animate().scaleX(1f).scaleY(1f).setDuration(upDuration).start();
                 return false;
             });
         }
@@ -231,7 +235,7 @@ public class MikaelHomeActivity extends BaseActivity {
         javaStatus.setText(javaSummary(instance));
         storageStatus.setText(storageSummary());
         installStatus.setText(installSummary(version));
-        launcherStatus.setText("Online • Mikael Launcher V3.1");
+        launcherStatus.setText("Launcher ativo • Mikael Launcher V3.1");
         if (!ProgressKeeper.hasOngoingTasks()) { loadStatus.setText("Pronto para jogar"); launchProgress.setVisibility(View.GONE); }
     }
 
@@ -945,14 +949,27 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void showLogs() {
         Instance i=Instances.loadSelectedInstance(); File root=i==null?Instances.SHARED_DATA_DIRECTORY:i.getGameDirectory();
-        File crash=new File(Tools.DIR_GAME_HOME,"latestcrash.txt"); String text="";
-        if(crash.isFile())try{text=Tools.read(crash);}catch(IOException ignored){}
-        if(text.length()>6000)text=text.substring(text.length()-6000); final String shown=text;
+        String text="";
+        File latestLog=new File(Tools.DIR_GAME_HOME,"latestlog.txt");
+        if(latestLog.isFile())try{text=Tools.read(latestLog);}catch(IOException ignored){}
+        if(text.isEmpty()){
+            File crashDir=new File(root,"crash-reports");
+            File[] crashes=crashDir.listFiles((f,n)->n.endsWith(".txt"));
+            if(crashes!=null&&crashes.length>0){
+                Arrays.sort(crashes,Comparator.comparingLong(File::lastModified).reversed());
+                try{text=Tools.read(crashes[0]);}catch(IOException ignored){}
+            }
+        }
+        if(text.length()>6000)text=text.substring(text.length()-6000);
+        final String shown=text;
         TextView view=new TextView(this);view.setTextColor(Color.WHITE);view.setTextSize(12);view.setPadding(30,20,30,20);
-        view.setText(shown.isEmpty()?"Nenhum crash report recente. Abra a pasta Logs para latest.log.":shown);
-        new AlertDialog.Builder(this).setTitle("Logs / Crash Report").setView(view).setNeutralButton("Abrir logs",(d,w)->openPath(new File(root,"logs"))).setNegativeButton("Copiar",(d,w)->{
-            ClipboardManager cm=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);if(cm!=null)cm.setPrimaryClip(ClipData.newPlainText("Mikael Launcher log",shown));
-        }).setPositiveButton("Fechar",null).show();
+        view.setText(shown.isEmpty()?"Nenhum log/crash report disponível.":shown);
+        new AlertDialog.Builder(this).setTitle("Logs / Crash Report").setView(view)
+                .setNeutralButton("Abrir logs",(d,w)->openPath(new File(root,"logs")))
+                .setNegativeButton("Copiar",(d,w)->{
+                    ClipboardManager cm=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+                    if(cm!=null)cm.setPrimaryClip(ClipData.newPlainText("Mikael Launcher log",shown));
+                }).setPositiveButton("Fechar",null).show();
     }
 
     private void applyBackground(){
