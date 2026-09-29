@@ -15,7 +15,7 @@ cp "$OVERLAY/src/main/java/net/kdt/pojavlaunch/"*.java "$POJAV/src/main/java/net
 cp "$OVERLAY/src/main/res/layout-land/"*.xml "$POJAV/src/main/res/layout-land/"
 cp "$OVERLAY/src/main/res/layout/"*.xml "$POJAV/src/main/res/layout/"
 cp "$OVERLAY/src/main/res/drawable/"*.xml "$POJAV/src/main/res/drawable/"
-cp "$OVERLAY/src/main/res/values/"*.xml "$POJAV/src/main/res/values/"
+cp "$OVERLAY/src/main/res/values/mikael_"*.xml "$POJAV/src/main/res/values/"
 
 python3 - "$POJAV/src/main/AndroidManifest.xml" <<'PY'
 import re, sys
