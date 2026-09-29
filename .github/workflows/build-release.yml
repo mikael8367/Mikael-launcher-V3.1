@@ -1,4 +1,4 @@
-name: Build Mikael Launcher V3.1
+name: Validate Mikael Launcher V3.1
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout project + submodules
@@ -26,22 +26,13 @@ jobs:
       - name: Apply Mikael overlay and hardening
         run: bash mikael_overlay/prepare_pojav.sh
 
-      - name: Build Release APK
+      - name: Compile Java sources only (no APK)
         working-directory: pojav-core
         run: |
           chmod +x gradlew
-          ./gradlew assembleFullRelease --no-daemon --stacktrace
+          ./gradlew :app_pojavlauncher:compileFullDebugJavaWithJavac --no-daemon --stacktrace
 
-      - name: Collect APK
+      - name: Run Android lint (no APK)
+        working-directory: pojav-core
         run: |
-          find pojav-core/app_pojavlauncher/build/outputs/apk -type f -name '*.apk' -print
-          APK="$(find pojav-core/app_pojavlauncher/build/outputs/apk -type f -name '*.apk' | head -n 1)"
-          test -n "$APK"
-          cp "$APK" Mikael-Launcher-V3.1.apk
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Mikael-Launcher-V3.1
-          path: Mikael-Launcher-V3.1.apk
-          if-no-files-found: error
+          ./gradlew :app_pojavlauncher:lintFullDebug --no-daemon --stacktrace
