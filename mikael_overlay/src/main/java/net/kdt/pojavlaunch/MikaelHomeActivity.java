@@ -688,6 +688,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("⚙️ Configurações")
+                .setMessage("Tudo é salvo automaticamente ao sair ou iniciar o Minecraft.")
                 .setItems(categories, (d, which) -> openSettingsCategory(which))
                 .setNegativeButton("Fechar", null)
                 .create();
@@ -729,7 +730,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showGameSettings() {
-        String[] values = {"Versão padrão: " + selectedVersion.getText(), "Perfil padrão: perfil atual", "Diretório do Minecraft", "Iniciar automaticamente", "Fechar launcher ao iniciar: automático"};
+        String[] values = {"🎮 Versão padrão: " + selectedVersion.getText(), "👤 Perfil padrão: perfil atual", "📁 Diretório do Minecraft", "▶️ Iniciar automaticamente", "🚪 Fechar launcher ao iniciar: automático"};
         new AlertDialog.Builder(this).setTitle("🎮 Jogo").setItems(values, (d,w) -> {
             if (w == 0) showVersions();
             else if (w == 1) Toast.makeText(this, "O perfil selecionado é o perfil usado pelo botão JOGAR.", Toast.LENGTH_LONG).show();
@@ -740,7 +741,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showRamSettings() {
-        String[] values = {"512 MB","1 GB","2 GB","3 GB","4 GB","6 GB","8 GB","Personalizado"};
+        String[] values = {"512 MB","1 GB","2 GB","3 GB","4 GB","6 GB","8 GB","✏️ Personalizado"};
         int total = Tools.getTotalDeviceMemory(this), safeMax = Math.max(512, total - 512);
         for (int i=0;i<values.length;i++) if (!"Personalizado".equals(values[i]) && memory(values[i]) > safeMax) values[i] += " • indisponível";
         new AlertDialog.Builder(this).setTitle("🧠 Memória / RAM")
@@ -894,7 +895,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void showInputSettings() {
         new AlertDialog.Builder(this).setTitle("⌨️ Teclado e mouse")
-                .setMessage("Teclado: detecção pelo Android\nMouse: detecção pelo Android\nControle: detecção pelo Android\n\nMapeamento e sensibilidade personalizados ainda dependem do editor de controles do Core.")
+                .setMessage("⌨️ Teclado: detecção pelo Android\n🖱️ Mouse: detecção pelo Android\n🎮 Controle: detecção pelo Android\n\nAs opções que o Core ainda não expõe ficam identificadas como pendentes; nenhuma configuração falsa é salva.")
                 .setPositiveButton("Fechar",null).show();
     }
 
