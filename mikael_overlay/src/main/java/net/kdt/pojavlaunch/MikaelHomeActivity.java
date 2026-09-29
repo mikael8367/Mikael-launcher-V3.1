@@ -967,7 +967,7 @@ public class MikaelHomeActivity extends BaseActivity {
         File latestLog=new File(Tools.DIR_GAME_HOME,"latestlog.txt");
         if(latestLog.isFile())try{text=Tools.read(latestLog);}catch(IOException ignored){}
         if(text.isEmpty()){
-            File crashDir=new File(root,"crash-reports");
+            File crashDir=new File(Tools.DIR_HOME_CRASH);
             File[] crashes=crashDir.listFiles((f,n)->n.endsWith(".txt"));
             if(crashes!=null&&crashes.length>0){
                 Arrays.sort(crashes,Comparator.comparingLong(File::lastModified).reversed());
@@ -979,7 +979,7 @@ public class MikaelHomeActivity extends BaseActivity {
         TextView view=new TextView(this);view.setTextColor(Color.WHITE);view.setTextSize(12);view.setPadding(30,20,30,20);
         view.setText(shown.isEmpty()?"Nenhum log/crash report disponível.":shown);
         new AlertDialog.Builder(this).setTitle("Logs / Crash Report").setView(view)
-                .setNeutralButton("Abrir logs",(d,w)->openPath(new File(root,"logs")))
+                .setNeutralButton("Abrir logs",(d,w)->openPath(new File(Tools.DIR_GAME_HOME)))
                 .setNegativeButton("Copiar",(d,w)->{
                     ClipboardManager cm=(ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
                     if(cm!=null)cm.setPrimaryClip(ClipData.newPlainText("Mikael Launcher log",shown));
