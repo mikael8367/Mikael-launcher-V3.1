@@ -57,7 +57,6 @@ s=s.replace('applicationId "net.kdt.pojavlaunch"', 'applicationId "com.mikael.la
 s=s.replace('versionName getVersionName()', 'versionName "3.1"', 1)
 s=s.replace('resValue "string", "app_name", "Mikael Launcher V3.1"', 'resValue "string", "app_name", "Mikael Launcher V3.1"', 1)
 s=s.replace('resValue "string", "app_short_name", "Mikael Launcher"', 'resValue "string", "app_short_name", "Mikael Launcher"', 1)
-s=s.replace('signingConfig signingConfigs.customRelease', 'signingConfig signingConfigs.customDebug', 1)
 p.write_text(s, encoding='utf-8')
 PY
 
