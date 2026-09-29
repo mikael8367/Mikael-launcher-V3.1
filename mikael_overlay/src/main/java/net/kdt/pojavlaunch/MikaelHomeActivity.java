@@ -534,6 +534,10 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void importMod(Uri uri) {
+        new Thread(() -> importModInternal(uri), "mikael-mod-import").start();
+    }
+
+    private void importModInternal(Uri uri) {
         Instance instance = Instances.loadSelectedInstance();
         File root = instance == null ? Instances.SHARED_DATA_DIRECTORY : instance.getGameDirectory();
         File dir = new File(root, "mods");
@@ -554,7 +558,7 @@ public class MikaelHomeActivity extends BaseActivity {
             byte[] buffer = new byte[8192];
             int read;
             while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-            Toast.makeText(this, "Mod importado: " + target.getName(), Toast.LENGTH_SHORT).show();
+            runOnUiThread(() -> Toast.makeText(this, "Mod importado: " + target.getName(), Toast.LENGTH_SHORT).show());
         } catch (Throwable e) {
             if (target.isFile()) target.delete();
             showError("Falha ao importar o mod: " + safe(e));
@@ -972,14 +976,22 @@ public class MikaelHomeActivity extends BaseActivity {
         ImageView image=findViewById(R.id.mikael_background);
         if(image==null)return;
         String value=prefs.getString("mikael_background_file",null);
-        if(value==null){
-            image.setImageResource(R.drawable.bg_mikael_gradient);
-            return;
-        }
+        if(value==null){ image.setImageResource(R.drawable.bg_mikael_gradient); return; }
         File file=new File(value);
-        if(file.isFile()) image.setImageURI(Uri.fromFile(file));
-        else {
-            prefs.edit().remove("mikael_background_file").apply();
+        if(!file.isFile()){ prefs.edit().remove("mikael_background_file").apply(); image.setImageResource(R.drawable.bg_mikael_gradient); return; }
+        try{
+            BitmapFactory.Options bounds=new BitmapFactory.Options();
+            bounds.inJustDecodeBounds=true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(),bounds);
+            int sample=1, maxDimension=1920;
+            while(bounds.outWidth/sample>maxDimension||bounds.outHeight/sample>maxDimension)sample*=2;
+            BitmapFactory.Options options=new BitmapFactory.Options();
+            options.inSampleSize=sample;
+            options.inPreferredConfig=android.graphics.Bitmap.Config.RGB_565;
+            android.graphics.Bitmap bitmap=BitmapFactory.decodeFile(file.getAbsolutePath(),options);
+            if(bitmap!=null) image.setImageBitmap(bitmap);
+            else image.setImageResource(R.drawable.bg_mikael_gradient);
+        }catch(Throwable e){
             image.setImageResource(R.drawable.bg_mikael_gradient);
         }
     }
