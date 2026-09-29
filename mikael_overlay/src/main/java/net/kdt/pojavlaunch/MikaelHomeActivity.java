@@ -499,7 +499,7 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void applyInstanceRam(Instance instance) {
-        if (instance == null || instance.mInstanceRoot == null) return;
+        if (instance == null || !Tools.isValidString(instance.versionId)) return;
         int ram = getInstanceRam(instance);
         LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation", ram).commit();
         LauncherPreferences.loadPreferences(this);
