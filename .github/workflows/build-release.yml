@@ -1,4 +1,4 @@
-name: Validate Mikael Launcher V3.1
+name: Build Mikael Launcher V3.1 APK
 
 on:
   push:
@@ -26,13 +26,26 @@ jobs:
       - name: Apply Mikael overlay and hardening
         run: bash mikael_overlay/prepare_pojav.sh
 
-      - name: Compile Java sources only (no APK)
+      - name: Compile Java sources
         working-directory: pojav-core
         run: |
           chmod +x gradlew
           ./gradlew :app_pojavlauncher:compileFullDebugJavaWithJavac --no-daemon --stacktrace
 
-      - name: Run Android lint (no APK)
+      - name: Run Android lint
         working-directory: pojav-core
         run: |
           ./gradlew :app_pojavlauncher:lintFullDebug --no-daemon --stacktrace
+
+      - name: Build debug APK
+        working-directory: pojav-core
+        run: |
+          ./gradlew :app_pojavlauncher:assembleFullDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mikael-Launcher-V3.1-debug
+          path: pojav-core/app_pojavlauncher/build/outputs/apk/full/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
