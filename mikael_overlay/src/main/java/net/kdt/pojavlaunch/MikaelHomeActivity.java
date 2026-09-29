@@ -437,13 +437,63 @@ public class MikaelHomeActivity extends BaseActivity {
     private void showModloaderVersions(JVersionList.Version[] versions) {
         String[] loaders = {"Vanilla", "OptiFine", "Forge", "Fabric", "Forge + OptiFine", "NeoForge", "Quilt", "Outros"};
         new AlertDialog.Builder(this)
-                .setTitle("🧩 Modloaders")
+                .setTitle("🧩 Modloaders reais")
+                .setMessage("Os instaladores abaixo usam o Modloader Core do launcher. Eles baixam metadata e arquivos oficiais e criam a instância real.")
                 .setItems(loaders, (d,w) -> {
-                    if (w == 0) showFilteredVersions(versions, 0);
-                    else showPendingSetting(loaders[w], "O instalador real deste modloader ainda não está integrado ao Launcher Core. Nenhuma instalação falsa será criada.");
+                    switch (w) {
+                        case 0:
+                            showFilteredVersions(versions, 0);
+                            break;
+                        case 1:
+                            openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine");
+                            break;
+                        case 2:
+                            openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.ForgeInstallFragment.class, "Forge");
+                            break;
+                        case 3:
+                            openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.FabricInstallFragment.class, "Fabric");
+                            break;
+                        case 4:
+                            showForgeOptiFineInstaller();
+                            break;
+                        case 5:
+                            openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.NeoforgeInstallFragment.class, "NeoForge");
+                            break;
+                        case 6:
+                            openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.QuiltInstallFragment.class, "Quilt");
+                            break;
+                        default:
+                            openGenericModloaderInstaller();
+                            break;
+                    }
                 })
                 .setNegativeButton("Voltar", (d,w) -> showVersions())
                 .show();
+    }
+
+    private void openRealModloaderInstaller(Class<? extends androidx.fragment.app.Fragment> fragmentClass, String name) {
+        try {
+            saveAllSettingsNow();
+            Tools.swapFragment(this, fragmentClass, fragmentClass.getName(), null);
+        } catch (Throwable e) {
+            showError("Não foi possível abrir o instalador de " + name + ": " + safe(e));
+        }
+    }
+
+    private void showForgeOptiFineInstaller() {
+        new AlertDialog.Builder(this)
+                .setTitle("Forge + OptiFine")
+                .setMessage("O Core possui instaladores reais separados para Forge e OptiFine. Para evitar criar uma combinação falsa, instale primeiro o Forge e depois o OptiFine usando o instalador correspondente.")
+                .setPositiveButton("Instalar Forge", (d,w) ->
+                        openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.ForgeInstallFragment.class, "Forge"))
+                .setNeutralButton("Instalar OptiFine", (d,w) ->
+                        openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine"))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void openGenericModloaderInstaller() {
+        modPicker.launch(new String[]{"application/java-archive", "application/octet-stream"});
     }
 
     private void showAccounts() {
@@ -571,7 +621,13 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void importMod(Uri uri) {
-        new Thread(() -> importModInternal(uri), "mikael-mod-import").start();
+        new Thread(() -> {
+            try {
+                Tools.launchModInstaller(this, uri);
+            } catch (Throwable e) {
+                importModInternal(uri);
+            }
+        }, "mikael-modloader-import").start();
     }
 
     private void importModInternal(Uri uri) {
