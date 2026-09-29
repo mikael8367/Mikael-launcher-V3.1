@@ -534,16 +534,28 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showSettings() {
-        final String[] categories = {
-                "🎮 Jogo", "🧠 Memória / RAM", "☕ Java", "⚙️ JVM", "🎮 Minecraft",
-                "🖥️ Tela", "🕹️ Controles", "⌨️ Teclado e mouse", "🎨 Aparência",
-                "🌐 Rede / downloads", "📦 Versões", "🧩 Mods", "👤 Contas",
-                "🔐 Privacidade e segurança", "📁 Arquivos", "📝 Logs", "🛠️ Diagnóstico",
-                "🧹 Limpeza", "🔄 Atualizações", "ℹ️ Sobre", "🚨 Restaurar configurações", "💾 Backup"
+        String[] categories = {
+                "🎮 Jogo", "🧠 RAM", "☕ Java", "⚙️ JVM",
+                "⛏️ Minecraft", "🖥️ Tela", "🕹️ Controles", "⌨️ Teclado e mouse",
+                "🎨 Aparência", "🌐 Rede e downloads", "📦 Versões", "🧩 Mods",
+                "👤 Contas", "🔐 Privacidade e segurança", "📁 Arquivos", "📝 Logs",
+                "🛠️ Diagnóstico", "🧹 Limpeza", "🔄 Atualizações", "ℹ️ Sobre",
+                "🚨 Restaurar configurações", "💾 Backup"
         };
-        new AlertDialog.Builder(this).setTitle("⚙️ Configurações")
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("⚙️ Configurações")
                 .setItems(categories, (d, which) -> openSettingsCategory(which))
-                .setNegativeButton("Fechar", null).show();
+                .setNegativeButton("Fechar", null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            ListView list = dialog.getListView();
+            if (list != null) {
+                list.setDividerHeight(0);
+                list.setPadding(8, 8, 8, 8);
+            }
+        });
+        dialog.show();
     }
 
     private void openSettingsCategory(int which) {
