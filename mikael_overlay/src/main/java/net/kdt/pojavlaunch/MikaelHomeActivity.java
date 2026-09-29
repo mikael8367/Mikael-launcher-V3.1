@@ -298,47 +298,91 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showVersions() {
-        setLoading(0, "Atualizando versões...");
+        setLoading(0, "Carregando todas as versões...");
         new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
             if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
-            if (list == null || list.versions == null) { showError("Não foi possível atualizar as versões."); return; }
+            if (list == null || list.versions == null) {
+                showError("Não foi possível atualizar a lista de versões.");
+                return;
+            }
 
-            String[] loaders = {"Vanilla", "OptiFine", "Forge", "Fabric", "Forge + OptiFine", "NeoForge", "Quilt", "Outros"};
+            String[] categories = {"⭐ Todas", "✅ Release", "🧪 Snapshot", "🔬 Beta / antigas", "🧩 Modloaders"};
             new AlertDialog.Builder(this)
-                    .setTitle("Versões • Modloaders")
-                    .setItems(loaders, (dialog, which) -> showVersionLoader(list.versions, loaders[which]))
-                    .setPositiveButton("Fechar", null)
+                    .setTitle("📦 Todas as versões")
+                    .setItems(categories, (dialog, which) -> {
+                        if (which == 4) showModloaderVersions(list.versions);
+                        else showFilteredVersions(list.versions, which);
+                    })
+                    .setNegativeButton("Fechar", null)
                     .show();
             launchProgress.setVisibility(View.GONE);
         }));
     }
 
-    private void showVersionLoader(JVersionList.Version[] versions, String loader) {
-        if (!"Vanilla".equals(loader)) {
-            new AlertDialog.Builder(this)
-                    .setTitle(loader)
-                    .setMessage("Este filtro está preparado na interface, mas o instalador desse modloader ainda não está integrado ao Launcher Core. Nenhum arquivo será alterado.")
-                    .setPositiveButton("OK", null)
-                    .show();
+    private void showFilteredVersions(JVersionList.Version[] versions, int category) {
+        ArrayList<JVersionList.Version> filtered = new ArrayList<>();
+        for (JVersionList.Version v : versions) {
+            if (v == null || v.id == null) continue;
+            String type = v.type == null ? "" : v.type.toLowerCase(java.util.Locale.ROOT);
+            boolean add = category == 0
+                    || (category == 1 && "release".equals(type))
+                    || (category == 2 && ("snapshot".equals(type) || type.contains("snapshot")))
+                    || (category == 3 && !"release".equals(type) && !("snapshot".equals(type) || type.contains("snapshot")));
+            if (add) filtered.add(v);
+        }
+
+        if (filtered.isEmpty()) {
+            showError("Nenhuma versão encontrada nessa categoria.");
             return;
         }
-        int count = Math.min(80, versions.length);
-        String[] items = new String[count];
-        for (int i = 0; i < count; i++) {
-            String id = versions[i].id;
-            boolean installed = new File(Tools.DIR_HOME_VERSION, id + "/" + id + ".jar").isFile()
-                    && new File(Tools.DIR_HOME_VERSION, id + "/" + id + ".json").isFile();
-            items[i] = (installed ? "✓ " : "○ ") + id + " • " + versions[i].type;
+
+        String[] items = new String[filtered.size()];
+        for (int i=0;i<filtered.size();i++) {
+            JVersionList.Version v=filtered.get(i);
+            boolean installed = isVersionInstalled(v.id);
+            items[i]=(installed ? "✓ " : "○ ") + v.id + " • " + v.type;
         }
-        new AlertDialog.Builder(this).setTitle("Vanilla • versões oficiais").setItems(items, (d, which) -> {
-            Instance instance = ensureInstance();
-            if (instance != null) {
-                instance.versionId = versions[which].id;
-                instance.maybeWrite();
-                prefs.edit().putString("mikael_version_loader", "Vanilla").apply();
-                refreshDashboard();
-            }
-        }).setPositiveButton("Fechar", null).show();
+
+        new AlertDialog.Builder(this)
+                .setTitle(category==0 ? "⭐ Todas as versões" : category==1 ? "✅ Releases" : category==2 ? "🧪 Snapshots" : "🔬 Beta / antigas")
+                .setItems(items, (d,w) -> selectVersion(filtered.get(w)))
+                .setNegativeButton("Voltar", (d,w) -> showVersions())
+                .show();
+    }
+
+    private boolean isVersionInstalled(String id) {
+        File dir = new File(Tools.DIR_HOME_VERSION, id);
+        return new File(dir, id + ".jar").isFile() && new File(dir, id + ".json").isFile();
+    }
+
+    private void selectVersion(JVersionList.Version version) {
+        if (version == null || version.id == null) return;
+        Instance instance = ensureInstance();
+        if (instance == null) return;
+        instance.versionId = version.id;
+        instance.maybeWrite();
+        prefs.edit().putString("mikael_version_type", version.type == null ? "" : version.type).apply();
+        refreshDashboard();
+
+        new AlertDialog.Builder(this)
+                .setTitle("Versão selecionada")
+                .setMessage(version.id + "\nTipo: " + version.type + "\n\n" +
+                        (isVersionInstalled(version.id) ? "✓ Esta versão já está instalada." : "○ Esta versão ainda não está instalada."))
+                .setPositiveButton("Jogar / instalar", (d,w) -> playMinecraft())
+                .setNegativeButton("OK", null)
+                .show();
+    }
+
+    private void showModloaderVersions(JVersionList.Version[] versions) {
+        String[] loaders = {"Vanilla", "OptiFine", "Forge", "Fabric", "Forge + OptiFine", "NeoForge", "Quilt", "Outros"};
+        new AlertDialog.Builder(this)
+                .setTitle("🧩 Modloaders")
+                .setItems(loaders, (d,w) -> {
+                    if (w == 0) showFilteredVersions(versions, 1);
+                    else showPendingSetting(loaders[w], "O instalador real deste modloader ainda não está integrado ao Launcher Core. Nenhuma instalação falsa será criada.");
+                })
+                .setNegativeButton("Voltar", (d,w) -> showVersions())
+                .show();
     }
 
     private void showAccounts() {
