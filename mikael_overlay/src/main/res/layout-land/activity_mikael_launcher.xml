@@ -27,7 +27,7 @@
 <ProgressBar android:id="@+id/launch_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="7dp" android:max="100" android:visibility="gone" android:layout_marginTop="10dp"/>
 <Button android:id="@+id/play_button" android:layout_width="match_parent" android:layout_height="70dp" android:layout_marginTop="18dp" android:background="@drawable/button_mikael_play" android:text="JOGAR" android:textAllCaps="false" android:textColor="@color/mikael_button_text" android:textSize="22sp" android:textStyle="bold" android:elevation="8dp"/>
 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Minecraft • perfil configurável • memória configurável" android:textColor="@color/mikael_text_secondary" android:textSize="12sp" android:layout_marginTop="10dp"/>
-<TextView android:id="@+id/launcher_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Online" android:textColor="@color/mikael_accent_soft" android:textSize="11sp" android:layout_marginTop="12dp"/>
+<TextView android:id="@+id/launcher_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Launcher ativo" android:textColor="@color/mikael_accent_soft" android:textSize="11sp" android:layout_marginTop="12dp"/>
 </LinearLayout>
 
 <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.8" android:orientation="vertical" android:gravity="center_vertical" android:paddingStart="14dp">
