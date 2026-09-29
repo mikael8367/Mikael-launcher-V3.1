@@ -89,7 +89,7 @@ for raw in sys.argv[1:]:
     p.write_text(s, encoding='utf-8')
 PY
 
-python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/Account.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/authenticator/accounts/Accounts.java" <<'PY'
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/authenticator/accounts/Account.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/authenticator/accounts/Accounts.java" <<'PY'
 import sys
 from pathlib import Path
 account=Path(sys.argv[1]); s=account.read_text(encoding='utf-8')
@@ -102,8 +102,8 @@ new='''    public void save() throws IOException {
         String originalAccessToken = accessToken;
         String originalRefreshToken = refreshToken;
         try {
-            accessToken = AccountSecureStore.protect(accessToken);
-            refreshToken = AccountSecureStore.protect(refreshToken);
+            accessToken = net.kdt.pojavlaunch.AccountSecureStore.protect(accessToken);
+            refreshToken = net.kdt.pojavlaunch.AccountSecureStore.protect(refreshToken);
             JSONUtils.writeToFile(mSaveLocation, this);
         } finally {
             accessToken = originalAccessToken;
@@ -116,8 +116,8 @@ old2='''            if(account == null) return null;
             account.mSaveLocation = mSaveLocation;
             return account;'''
 new2='''            if(account == null) return null;
-            account.accessToken = AccountSecureStore.restore(account.accessToken);
-            account.refreshToken = AccountSecureStore.restore(account.refreshToken);
+            account.accessToken = net.kdt.pojavlaunch.AccountSecureStore.restore(account.accessToken);
+            account.refreshToken = net.kdt.pojavlaunch.AccountSecureStore.restore(account.refreshToken);
             account.mSaveLocation = mSaveLocation;
             return account;'''
 if old2 in s: s=s.replace(old2,new2)
