@@ -331,9 +331,20 @@ public class MikaelHomeActivity extends BaseActivity {
                 runOnUiThread(() -> showError("Falha ao obter a lista de versões."));
                 return;
             }
+            net.kdt.pojavlaunch.extra.ExtraCore.setValue(
+                    net.kdt.pojavlaunch.extra.ExtraConstants.RELEASE_TABLE, list);
+
             JVersionList.Version selected = MoJsonExtras.getListedVersion(version);
             if (selected == null) {
-                runOnUiThread(() -> showError("A versão " + version + " não foi encontrada na lista oficial."));
+                for (JVersionList.Version candidate : list.versions) {
+                    if (candidate != null && version.equals(candidate.id)) {
+                        selected = candidate;
+                        break;
+                    }
+                }
+            }
+            if (selected == null) {
+                runOnUiThread(() -> showError("A versão " + version + " não está disponível no manifesto baixado."));
                 return;
             }
             runOnUiThread(() -> setLoading(6, "Preparando Minecraft " + version + "..."));
@@ -451,7 +462,6 @@ public class MikaelHomeActivity extends BaseActivity {
         String[] loaders = {"Vanilla", "OptiFine", "Forge", "Fabric", "Forge + OptiFine", "NeoForge", "Quilt", "Outros"};
         new AlertDialog.Builder(this)
                 .setTitle("🧩 Modloaders reais")
-                .setMessage("Os instaladores abaixo usam o Modloader Core do launcher. Eles baixam metadata e arquivos oficiais e criam a instância real.")
                 .setItems(loaders, (d,w) -> {
                     switch (w) {
                         case 0:
@@ -688,7 +698,6 @@ public class MikaelHomeActivity extends BaseActivity {
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("⚙️ Configurações")
-                .setMessage("Tudo é salvo automaticamente ao sair ou iniciar o Minecraft.")
                 .setItems(categories, (d, which) -> openSettingsCategory(which))
                 .setNegativeButton("Fechar", null)
                 .create();
@@ -745,7 +754,6 @@ public class MikaelHomeActivity extends BaseActivity {
         int total = Tools.getTotalDeviceMemory(this), safeMax = Math.max(512, total - 512);
         for (int i=0;i<values.length;i++) if (!"Personalizado".equals(values[i]) && memory(values[i]) > safeMax) values[i] += " • indisponível";
         new AlertDialog.Builder(this).setTitle("🧠 Memória / RAM")
-                .setMessage("RAM total: " + total + " MB\nRAM disponível agora: " + getAvailableRamMb() + " MB\nRAM máxima segura sugerida: " + safeMax + " MB")
                 .setItems(values, (d,w) -> {
                     if (w == values.length - 1) {
                         EditText input = new EditText(this);
