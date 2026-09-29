@@ -204,6 +204,7 @@ public class MikaelHomeActivity extends BaseActivity {
         click(R.id.nav_logs, v -> showLogs());
         click(R.id.play_button, v -> playGame());
         click(R.id.installed_versions_button, v -> showInstalledVersions());
+        click(R.id.configure_version_button, v -> showVersionConfiguration());
         click(R.id.account_card, v -> showAccounts());
     }
 
@@ -214,7 +215,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void animateButtons() {
         int mode = prefs == null ? 0 : prefs.getInt("animations", 0);
-        int[] ids = {R.id.play_button,R.id.installed_versions_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
+        int[] ids = {R.id.play_button,R.id.installed_versions_button,R.id.configure_version_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
         for (int id : ids) {
             View view = findViewById(id);
             if (view == null) continue;
@@ -306,6 +307,7 @@ public class MikaelHomeActivity extends BaseActivity {
         if (account == null) { showAccounts(); return; }
         Instance instance = ensureInstance();
         if (instance == null) { showError("Não foi possível preparar o perfil."); return; }
+        applyInstanceRam(instance);
         String version = MoJsonExtras.normalizeVersionId(instance.versionId);
         if (!Tools.isValidString(version)) { showError("Nenhuma versão foi selecionada."); return; }
 
@@ -375,6 +377,155 @@ public class MikaelHomeActivity extends BaseActivity {
             launchProgress.setProgress(Math.max(0, Math.min(100, progress)));
             loadStatus.setText(status);
         });
+    }
+
+    private void showVersionConfiguration() {
+        Instance instance = ensureInstance();
+        if (instance == null) return;
+        String currentName = Tools.isValidString(instance.name) ? instance.name : instance.versionId;
+        String renderer = Tools.isValidString(instance.renderer) ? instance.renderer : LauncherPreferences.PREF_RENDERER;
+        String runtime = Tools.isValidString(instance.selectedRuntime) ? instance.selectedRuntime : "Automático";
+        int ram = getInstanceRam(instance);
+        String[] items = {
+                "🏷️ Nome: " + currentName,
+                "🖥️ Renderizador: " + renderer,
+                "☕ Runtime: " + runtime,
+                "🧠 RAM: " + ram + " MB",
+                "🧩 Mods da versão"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("⚙️ Configurar versão")
+                .setItems(items, (d, which) -> {
+                    switch (which) {
+                        case 0: editInstanceName(instance); break;
+                        case 1: chooseInstanceRenderer(instance); break;
+                        case 2: chooseInstanceRuntime(instance); break;
+                        case 3: chooseInstanceRam(instance); break;
+                        case 4: showInstanceMods(instance); break;
+                    }
+                })
+                .setNegativeButton("Fechar", null)
+                .show();
+    }
+
+    private int getInstanceRam(Instance instance) {
+        if (instance == null || instance.mInstanceRoot == null) return LauncherPreferences.PREF_RAM_ALLOCATION;
+        return prefs.getInt("instance_ram_" + instance.mInstanceRoot.getName(), LauncherPreferences.PREF_RAM_ALLOCATION);
+    }
+
+    private void editInstanceName(Instance instance) {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(instance.name == null ? "" : instance.name);
+        input.setHint("Nome da versão");
+        new AlertDialog.Builder(this).setTitle("🏷️ Nome da versão").setView(input)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Salvar", (d,w) -> {
+                    String name = input.getText().toString().trim();
+                    instance.name = name.isEmpty() ? instance.versionId : name;
+                    instance.maybeWrite();
+                    refreshDashboard();
+                    showVersionConfiguration();
+                }).show();
+    }
+
+    private void chooseInstanceRenderer(Instance instance) {
+        String[] names = {"OpenGL ES 2 (GL4ES)", "OpenGL ES 3 (LTW)", "Zink (Vulkan)", "Freedreno", "Mesa", "Mesa Extended", "Legacy Zink", "MobileGLUES", "NGGL4ES", "Pojav SFPEW"};
+        String[] values = {"opengles2","opengles3_ltw","vulkan_zink","freedreno_kgsl","mesa_desktop","mesa_desktop_ext","vulkan_legacyzink","opengles_mobileglues","opengles_nggl4es","opengles_sfpew"};
+        int checked = 0;
+        for (int i=0;i<values.length;i++) if(values[i].equals(instance.renderer)) checked=i;
+        final int initial=checked;
+        new AlertDialog.Builder(this).setTitle("🖥️ Renderizador")
+                .setSingleChoiceItems(names, initial, (d,w) -> {
+                    instance.renderer = values[w];
+                    instance.maybeWrite();
+                    d.dismiss();
+                    showVersionConfiguration();
+                }).setNegativeButton("Cancelar", null).show();
+    }
+
+    private void chooseInstanceRuntime(Instance instance) {
+        List<Runtime> runtimes = MultiRTUtils.getRuntimes();
+        ArrayList<String> names = new ArrayList<>();
+        names.add("Automático");
+        for (Runtime r : runtimes) names.add(r.name);
+        int checked = instance.selectedRuntime == null ? 0 : Math.max(0, names.indexOf(instance.selectedRuntime));
+        new AlertDialog.Builder(this).setTitle("☕ Runtime")
+                .setSingleChoiceItems(names.toArray(new String[0]), checked, (d,w) -> {
+                    instance.selectedRuntime = w == 0 ? null : names.get(w);
+                    instance.maybeWrite();
+                    d.dismiss();
+                    showVersionConfiguration();
+                }).setNegativeButton("Cancelar", null).show();
+    }
+
+    private void chooseInstanceRam(Instance instance) {
+        int total = getTotalRamMb();
+        int safeMax = Math.max(512, total - 512);
+        String[] values = {"512 MB","1024 MB","2048 MB","3072 MB","4096 MB","6144 MB","8192 MB","Personalizado"};
+        int current = getInstanceRam(instance);
+        int checked = 2;
+        int[] mb = {512,1024,2048,3072,4096,6144,8192};
+        for(int i=0;i<mb.length;i++) if(current == mb[i]) checked=i;
+        new AlertDialog.Builder(this).setTitle("🧠 RAM da versão")
+                .setMessage("Limite seguro neste aparelho: " + safeMax + " MB")
+                .setSingleChoiceItems(values, checked, (d,w) -> {
+                    if(w == values.length-1) {
+                        EditText input = new EditText(this);
+                        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+                        input.setHint("MB");
+                        input.setText(String.valueOf(current));
+                        new AlertDialog.Builder(this).setTitle("RAM personalizada").setView(input)
+                                .setNegativeButton("Cancelar", null)
+                                .setPositiveButton("Salvar", (x,y) -> saveInstanceRam(instance, input.getText().toString(), safeMax)).show();
+                        return;
+                    }
+                    saveInstanceRam(instance, String.valueOf(mb[w]), safeMax);
+                    d.dismiss();
+                }).setNegativeButton("Cancelar", null).show();
+    }
+
+    private void saveInstanceRam(Instance instance, String raw, int safeMax) {
+        try {
+            int mb = Integer.parseInt(raw.trim());
+            mb = Math.max(512, Math.min(safeMax, mb));
+            prefs.edit().putInt("instance_ram_" + instance.mInstanceRoot.getName(), mb).apply();
+            Toast.makeText(this, "RAM da versão: " + mb + " MB", Toast.LENGTH_SHORT).show();
+            showVersionConfiguration();
+        } catch (Throwable e) { showError("RAM inválida."); }
+    }
+
+    private void applyInstanceRam(Instance instance) {
+        if (instance == null || instance.mInstanceRoot == null) return;
+        int ram = getInstanceRam(instance);
+        LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation", ram).commit();
+        LauncherPreferences.loadPreferences(this);
+    }
+
+    private void showInstanceMods(Instance instance) {
+        File modsDir = new File(instance.getGameDirectory(), "mods");
+        File[] files = modsDir.isDirectory() ? modsDir.listFiles((dir,name) -> name.endsWith(".jar") || name.endsWith(".jar.disabled")) : null;
+        if (files == null || files.length == 0) {
+            new AlertDialog.Builder(this).setTitle("🧩 Mods • " + instance.versionId)
+                    .setMessage("Nenhum mod encontrado nesta versão.\n\nUse o menu Mods para importar arquivos .jar.")
+                    .setPositiveButton("OK", null).show();
+            return;
+        }
+        Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
+        String[] items = new String[files.length];
+        for(int i=0;i<files.length;i++) items[i] = files[i].getName() + (files[i].getName().endsWith(".disabled") ? "  [desativado]" : "  [ativo]");
+        new AlertDialog.Builder(this).setTitle("🧩 Mods • " + instance.versionId + " (" + files.length + ")")
+                .setItems(items, (d,w) -> toggleInstanceMod(files[w])).setNegativeButton("Fechar", null).show();
+    }
+
+    private void toggleInstanceMod(File file) {
+        String name = file.getName();
+        File target;
+        if(name.endsWith(".jar.disabled")) target = new File(file.getParentFile(), name.substring(0,name.length()-9));
+        else if(name.endsWith(".jar")) target = new File(file.getParentFile(), name + ".disabled");
+        else return;
+        if(file.renameTo(target)) showVersionConfiguration();
+        else showError("Não foi possível alterar o mod.");
     }
 
     private void showInstalledVersions() {
