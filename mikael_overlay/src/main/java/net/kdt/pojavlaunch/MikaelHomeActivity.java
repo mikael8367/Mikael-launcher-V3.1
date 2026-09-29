@@ -300,6 +300,7 @@ public class MikaelHomeActivity extends BaseActivity {
     private void showVersions() {
         setLoading(0, "Atualizando versões...");
         new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
+            if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
             if (list == null || list.versions == null) { showError("Não foi possível atualizar as versões."); return; }
             int count = Math.min(80, list.versions.length);
             String[] items = new String[count];
@@ -496,5 +497,12 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void applyBackground(){ImageView image=findViewById(R.id.mikael_background);String value=prefs.getString("mikael_background_uri",null);if(image==null)return;if(value==null)image.setImageDrawable(new ColorDrawable(Color.TRANSPARENT));else try{image.setImageURI(Uri.parse(value));}catch(Throwable ignored){}}
     private String safe(Throwable t){return t==null?"erro desconhecido":t.getMessage()==null?t.getClass().getSimpleName():t.getMessage();}
-    private void showError(String message){new AlertDialog.Builder(this).setTitle("Mikael Launcher").setMessage(message).setPositiveButton("OK",null).show();}
+    private void showError(String message){
+        runOnUiThread(() -> {
+            if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+            try {
+                new AlertDialog.Builder(this).setTitle("Mikael Launcher").setMessage(message).setPositiveButton("OK",null).show();
+            } catch (Throwable ignored) {}
+        });
+    }
 }
