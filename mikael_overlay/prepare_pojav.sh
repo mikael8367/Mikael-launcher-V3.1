@@ -16,7 +16,7 @@ cp "$OVERLAY/src/main/res/layout-land/"*.xml "$POJAV/src/main/res/layout-land/"
 cp "$OVERLAY/src/main/res/layout/"*.xml "$POJAV/src/main/res/layout/"
 cp "$OVERLAY/src/main/res/drawable/"*.xml "$POJAV/src/main/res/drawable/"
 cp "$OVERLAY/src/main/res/values/mikael_"*.xml "$POJAV/src/main/res/values/"
-
+\n# Remove unused upstream Pojav branding images from the launcher package.\nrm -f "$POJAV/src/main/res/drawable/ic_pojav_full.webp"\nrm -f "$POJAV/src/main/res/drawable/ic_setting_sign_in_background.webp"\n
 python3 - "$POJAV/src/main/AndroidManifest.xml" <<'PY'
 import re, sys
 from pathlib import Path
