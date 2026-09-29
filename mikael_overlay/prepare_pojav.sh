@@ -16,6 +16,21 @@ cp "$OVERLAY/src/main/res/layout-land/"*.xml "$POJAV/src/main/res/layout-land/"
 cp "$OVERLAY/src/main/res/layout/"*.xml "$POJAV/src/main/res/layout/"
 cp "$OVERLAY/src/main/res/drawable/"*.xml "$POJAV/src/main/res/drawable/"
 cp "$OVERLAY/src/main/res/values/mikael_"*.xml "$POJAV/src/main/res/values/"
+# Replace every legacy Pojav sign-in/background image reference before removing the files.
+python3 - "$POJAV/src/main/res" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+for p in root.rglob("*.xml"):
+    try:
+        text = p.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        continue
+    updated = text.replace('@drawable/ic_setting_sign_in_background', '@drawable/bg_mikael_gradient')
+    if updated != text:
+        p.write_text(updated, encoding="utf-8")
+PY
+
 # Remove unused upstream Pojav branding images from the launcher package.
 rm -f "$POJAV/src/main/res/drawable/ic_pojav_full.webp"
 rm -f "$POJAV/src/main/res/drawable/ic_setting_sign_in_background.webp"
