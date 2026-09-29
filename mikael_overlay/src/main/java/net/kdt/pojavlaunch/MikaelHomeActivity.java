@@ -366,6 +366,9 @@ public class MikaelHomeActivity extends BaseActivity {
             showError("Nenhuma versão encontrada nessa categoria.");
             return;
         }
+        if (prefs.getBoolean("installed_first", true)) {
+            filtered.sort((a,b) -> Boolean.compare(!isVersionInstalled(a.id), !isVersionInstalled(b.id)));
+        }
 
         String[] items = new String[filtered.size()];
         for (int i=0;i<filtered.size();i++) {
@@ -409,7 +412,7 @@ public class MikaelHomeActivity extends BaseActivity {
         new AlertDialog.Builder(this)
                 .setTitle("🧩 Modloaders")
                 .setItems(loaders, (d,w) -> {
-                    if (w == 0) showFilteredVersions(versions, 1);
+                    if (w == 0) showFilteredVersions(versions, 0);
                     else showPendingSetting(loaders[w], "O instalador real deste modloader ainda não está integrado ao Launcher Core. Nenhuma instalação falsa será criada.");
                 })
                 .setNegativeButton("Voltar", (d,w) -> showVersions())
@@ -617,13 +620,13 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showGameSettings() {
-        String[] values = {"Versão padrão: " + selectedVersion.getText(), "Perfil padrão: perfil atual", "Diretório do Minecraft", "Iniciar automaticamente", "Fechar launcher ao iniciar"};
+        String[] values = {"Versão padrão: " + selectedVersion.getText(), "Perfil padrão: perfil atual", "Diretório do Minecraft", "Iniciar automaticamente", "Fechar launcher ao iniciar: automático"};
         new AlertDialog.Builder(this).setTitle("🎮 Jogo").setItems(values, (d,w) -> {
             if (w == 0) showVersions();
             else if (w == 1) Toast.makeText(this, "O perfil selecionado é o perfil usado pelo botão JOGAR.", Toast.LENGTH_LONG).show();
             else if (w == 2) openPath(Instances.loadSelectedInstance() == null ? Instances.SHARED_DATA_DIRECTORY : Instances.loadSelectedInstance().getGameDirectory());
             else if (w == 3) togglePref("auto_start", "Iniciar automaticamente");
-            else if (w == 4) togglePref("close_on_start", "Fechar launcher ao iniciar");
+            else if (w == 4) Toast.makeText(this, "O Core fecha o launcher automaticamente quando o GameActivity é iniciado.", Toast.LENGTH_LONG).show();
         }).show();
     }
 
@@ -761,7 +764,8 @@ public class MikaelHomeActivity extends BaseActivity {
     private void setResolutionDialog(Instance instance){
         String[] values={"Automática (0x0)","1280x720","1600x900","1920x1080"};
         new AlertDialog.Builder(this).setTitle("Resolução").setItems(values,(d,w)->{
-            String[] size=values[w].replace(" (0x0)","").split("x");
+            String value = w == 0 ? "0x0" : values[w];
+            String[] size=value.split("x");
             writeGameOption(instance.getGameDirectory(),"overrideWidth",size[0]);
             writeGameOption(instance.getGameDirectory(),"overrideHeight",size[1]);
         }).show();
