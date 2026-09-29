@@ -801,7 +801,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void chooseThemeAndAnimation() {
         new AlertDialog.Builder(this).setTitle("🎨 Aparência").setItems(new String[]{"Automático","Escuro","Claro","Animações: todas","Animações: reduzidas","Animações: desativadas","Fundo personalizado"},(d,w)->{
-            if(w<3){AppCompatDelegate.setDefaultNightMode(w==0?AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM:w==1?AppCompatDelegate.MODE_NIGHT_YES:AppCompatDelegate.MODE_NIGHT_NO);prefs.edit().putInt("theme",w).apply();}
+            if(w<3){prefs.edit().putInt("theme",w).apply();AppCompatDelegate.setDefaultNightMode(w==0?AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM:w==1?AppCompatDelegate.MODE_NIGHT_YES:AppCompatDelegate.MODE_NIGHT_NO);}
             else if(w<6){prefs.edit().putInt("animations",w-3).apply(); animateButtons(); Toast.makeText(this,"Preferência de animação aplicada.",Toast.LENGTH_SHORT).show();}
             else backgroundPicker.launch(new String[]{"image/*"});
         }).show();
@@ -931,9 +931,21 @@ public class MikaelHomeActivity extends BaseActivity {
     private void resetSettings() {
         new AlertDialog.Builder(this).setTitle("🚨 Restaurar configurações").setMessage("Isso restaurará as configurações do launcher. Seus mundos, mods e arquivos do Minecraft não serão apagados.")
                 .setNegativeButton("Cancelar",null).setPositiveButton("Restaurar",(d,w)->{
+                    File background = new File(getFilesDir(), "mikael_background_image");
+                    if (background.isFile()) background.delete();
                     prefs.edit().clear().apply();
-                    LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation",1024).apply();
+                    LauncherPreferences.DEFAULT_PREF.edit()
+                            .remove("allocation")
+                            .remove("javaArgs")
+                            .remove("resolutionRatio")
+                            .remove("verifyManifest")
+                            .remove("checkGameFiles")
+                            .remove("renderer")
+                            .remove("defaultRuntime")
+                            .apply();
+                    try { LauncherPreferences.loadPreferences(this); } catch (Throwable ignored) {}
                     AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+                    applyDisplaySettings();
                     refreshDashboard();
                 }).show();
     }
