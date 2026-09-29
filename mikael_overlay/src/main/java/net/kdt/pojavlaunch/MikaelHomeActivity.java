@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.os.StatFs;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
@@ -518,7 +519,21 @@ public class MikaelHomeActivity extends BaseActivity {
         authDialog = new AlertDialog.Builder(this).setTitle(microsoft ? "Entrar com Microsoft" : "Entrar com Ely.by").setView(authWebView).setNegativeButton("Cancelar",null).create();
         authDialog.setOnDismissListener(d -> { if (authWebView != null) { authWebView.stopLoading(); authWebView.destroy(); authWebView=null; } authDialog=null; });
         authDialog.show();
-        Window window = authDialog.getWindow(); if (window != null) window.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.92f),(int)(getResources().getDisplayMetrics().heightPixels*.88f));
+        Window window = authDialog.getWindow();
+        if (window != null) {
+            window.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.92f),(int)(getResources().getDisplayMetrics().heightPixels*.88f));
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    | android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+        // Samsung/Android WebView can keep the HTML field focused without opening the IME.
+        authWebView.setFocusable(true);
+        authWebView.setFocusableInTouchMode(true);
+        authWebView.requestFocus(View.FOCUS_DOWN);
+        authWebView.postDelayed(() -> {
+            if (authWebView == null || authDialog == null || !authDialog.isShowing()) return;
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(authWebView, InputMethodManager.SHOW_IMPLICIT);
+        }, 350);
     }
 
     private void beginLogin(AuthType type, String code) {
