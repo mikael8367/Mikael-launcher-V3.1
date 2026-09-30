@@ -137,6 +137,7 @@ public class MikaelHomeActivity extends BaseActivity {
         prefs = getSharedPreferences("mikael_launcher", MODE_PRIVATE);
         try { MoJsonDownloader.prepareSubstitutionMap(getAssets()); } catch (Throwable ignored) {}
         setContentView(R.layout.activity_mikael_launcher);
+        setupPojavFragmentHost();
         accountName = findViewById(R.id.account_name);
         accountType = findViewById(R.id.account_type);
         selectedVersion = findViewById(R.id.selected_version);
@@ -706,11 +707,35 @@ public class MikaelHomeActivity extends BaseActivity {
     private void openRealModloaderInstaller(Class<? extends androidx.fragment.app.Fragment> fragmentClass, String name) {
         try {
             saveAllSettingsNow();
+            showPojavFragmentHost();
             Tools.swapFragment(this, fragmentClass, fragmentClass.getName(), null);
         } catch (Throwable e) {
             showError("Não foi possível abrir o instalador de " + name + ": " + safe(e));
         }
     }
+
+    private void setupPojavFragmentHost() {
+        getSupportFragmentManager().addOnBackStackChangedListener(this::syncPojavFragmentHost);
+        syncPojavFragmentHost();
+    }
+
+    private void showPojavFragmentHost() {
+        View root=findViewById(R.id.mikael_root), host=findViewById(R.id.container_fragment);
+        if(root==null||host==null)return;
+        host.setVisibility(View.VISIBLE);
+        if(root instanceof android.view.ViewGroup){ android.view.ViewGroup g=(android.view.ViewGroup)root; for(int i=0;i<g.getChildCount();i++){View c=g.getChildAt(i); if(c!=host)c.setVisibility(View.GONE);} }
+    }
+
+    private void syncPojavFragmentHost() {
+        View root=findViewById(R.id.mikael_root), host=findViewById(R.id.container_fragment);
+        if(root==null||host==null)return;
+        boolean showing=getSupportFragmentManager().getBackStackEntryCount()>0;
+        if(showing){showPojavFragmentHost();return;}
+        host.setVisibility(View.GONE);
+        if(root instanceof android.view.ViewGroup){ android.view.ViewGroup g=(android.view.ViewGroup)root; for(int i=0;i<g.getChildCount();i++)g.getChildAt(i).setVisibility(View.VISIBLE); }
+    }
+
+    @Override public void onBackPressed(){ if(getSupportFragmentManager().getBackStackEntryCount()>0){getSupportFragmentManager().popBackStack();return;} super.onBackPressed(); }
 
     private void showForgeOptiFineInstaller() {
         new AlertDialog.Builder(this)
