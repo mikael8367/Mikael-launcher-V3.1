@@ -709,6 +709,9 @@ public class MikaelHomeActivity extends BaseActivity {
     private void openRealModloaderInstaller(Class<? extends androidx.fragment.app.Fragment> fragmentClass, String name) {
         try {
             saveAllSettingsNow();
+            View host = findViewById(R.id.container_fragment);
+            if (host == null) throw new IllegalStateException("Host do instalador não encontrado");
+            host.setVisibility(View.VISIBLE);
             showPojavFragmentHost();
             Tools.swapFragment(this, fragmentClass, fragmentClass.getName(), null);
         } catch (Throwable e) {
