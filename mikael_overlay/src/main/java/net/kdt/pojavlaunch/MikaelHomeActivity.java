@@ -164,7 +164,9 @@ public class MikaelHomeActivity extends BaseActivity {
         applyBackground();
         applyDisplaySettings();
         refreshDashboard();
-        if (state == null && prefs.getBoolean("auto_start", false)) {
+        if (state == null && !prefs.getBoolean("optifine_1122_setup_started", false)) {
+            openFirstRunOptiFine();
+        } else if (state == null && prefs.getBoolean("auto_start", false)) {
             getWindow().getDecorView().postDelayed(this::playGame, 350);
         }
     }
