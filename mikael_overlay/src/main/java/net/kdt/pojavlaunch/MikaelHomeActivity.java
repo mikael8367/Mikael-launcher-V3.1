@@ -706,6 +706,24 @@ public class MikaelHomeActivity extends BaseActivity {
                 .show();
     }
 
+    private void openFirstRunOptiFine() {
+        try {
+            Instance instance = ensureInstance();
+            if (instance == null) return;
+            instance.versionId = "1.12.2";
+            if (!Tools.isValidString(instance.name)) instance.name = "1.12.2 OptiFine";
+            instance.maybeWrite();
+            prefs.edit().putBoolean("optifine_1122_setup_started", true).apply();
+            refreshDashboard();
+            getWindow().getDecorView().postDelayed(() -> {
+                if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+                openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine");
+            }, 700);
+        } catch (Throwable e) {
+            showError("Não foi possível preparar o OptiFine 1.12.2: " + safe(e));
+        }
+    }
+
     private void openRealModloaderInstaller(Class<? extends androidx.fragment.app.Fragment> fragmentClass, String name) {
         try {
             saveAllSettingsNow();
