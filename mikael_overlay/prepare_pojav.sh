@@ -61,7 +61,7 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                 return;
             }
             throw new IOException("Unsupported control layout version");
-        } catch (JsonSyntaxException | org.json.JSONException e) {
+        } catch (JsonSyntaxException e) {
             Toast.makeText(getContext(), "Esse arquivo de controles está corrompido ou em formato inválido.", Toast.LENGTH_LONG).show();
             Log.e("MikaelControls", "Invalid control layout: " + jsonPath, e);
         } catch (IOException e) {
