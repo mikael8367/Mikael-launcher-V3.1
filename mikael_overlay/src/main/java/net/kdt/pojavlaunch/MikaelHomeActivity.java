@@ -131,6 +131,18 @@ public class MikaelHomeActivity extends BaseActivity {
         @Override public void onProgressEnded() {}
     };
 
+    @Override public void onBackPressed() {
+        saveAllSettingsNow();
+        try {
+            if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+                getSupportFragmentManager().popBackStack();
+                return;
+            }
+        } catch (Throwable ignored) {}
+        if (android.os.Build.VERSION.SDK_INT >= 21) finishAndRemoveTask();
+        else finish();
+    }
+
     @Override public boolean setFullscreen() { return prefs != null && prefs.getBoolean("fullscreen", false); }
 
     private void applyDisplaySettings() {
