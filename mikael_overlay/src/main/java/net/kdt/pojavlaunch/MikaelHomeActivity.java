@@ -173,9 +173,9 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     /**
-     * Pojav's GameActivity expects the default touch-control layout to exist
-     * in the app storage. MikaelHomeActivity replaces the upstream launcher
-     * startup path, so create that file explicitly from the bundled asset.
+     * GameActivity falls back to Tools.CTRLDEF_FILE when the selected instance
+     * has no custom control layout. Upstream generates this layout from the
+     * CustomControls(Context) constructor; it is not an Android asset.
      */
     private void ensureDefaultControlLayout() {
         try {
@@ -188,31 +188,11 @@ public class MikaelHomeActivity extends BaseActivity {
                 throw new IOException("Não foi possível criar a pasta de controles.");
             }
 
-            File temp = new File(parent == null ? getCacheDir() : parent,
-                    "default.json.mikael.tmp");
-            try (InputStream in = getAssets().open("default.json");
-                 OutputStream out = new java.io.FileOutputStream(temp)) {
-                byte[] buffer = new byte[8192];
-                int read;
-                while ((read = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
-                }
-                out.flush();
-            }
+            new net.kdt.pojavlaunch.customcontrols.CustomControls(this)
+                    .save(target.getAbsolutePath());
 
-            if (!temp.renameTo(target)) {
-                try (InputStream in = new java.io.FileInputStream(temp);
-                     OutputStream out = new java.io.FileOutputStream(target)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, read);
-                    }
-                    out.flush();
-                }
-                if (!temp.delete()) {
-                    // Best effort cleanup only.
-                }
+            if (!target.isFile() || target.length() == 0) {
+                throw new IOException("O controle padrão não foi criado.");
             }
         } catch (Throwable error) {
             android.util.Log.e("MikaelControls",
