@@ -260,8 +260,7 @@ public class MikaelHomeActivity extends BaseActivity {
             // them with an empty layout: that would make the initial controls disappear.
             net.kdt.pojavlaunch.customcontrols.CustomControls generated =
                     new net.kdt.pojavlaunch.customcontrols.CustomControls(this);
-            generated.mLayoutBitmaps =
-                    net.kdt.pojavlaunch.customcontrols.LayoutBitmaps.createEmpty();
+            // Keep Pojav's generated default control definitions intact.
             generated.save(target.getAbsolutePath());
 
             if (!target.isFile() || target.length() == 0) {
