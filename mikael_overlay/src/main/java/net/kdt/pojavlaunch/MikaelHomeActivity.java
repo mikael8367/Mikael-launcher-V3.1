@@ -825,15 +825,189 @@ public class MikaelHomeActivity extends BaseActivity {
     @Override public void onBackPressed(){ if(getSupportFragmentManager().getBackStackEntryCount()>0){getSupportFragmentManager().popBackStack();return;} super.onBackPressed(); }
 
     private void showForgeOptiFineInstaller() {
-        new AlertDialog.Builder(this)
-                .setTitle("Forge + OptiFine")
-                .setMessage("O Core possui instaladores reais separados para Forge e OptiFine. Para evitar criar uma combinação falsa, instale primeiro o Forge e depois o OptiFine usando o instalador correspondente.")
-                .setPositiveButton("Instalar Forge", (d,w) ->
-                        openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.ForgeInstallFragment.class, "Forge"))
-                .setNeutralButton("Instalar OptiFine", (d,w) ->
-                        openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine"))
-                .setNegativeButton("Cancelar", null)
-                .show();
+        // Combined installer: Minecraft -> Forge -> OptiFine.
+        // The selected versions are kept together so OptiFine is installed on
+        // the Forge instance instead of creating an unrelated standalone profile.
+        if (selectedVersion == null) {
+            showError("Selecione primeiro uma versão do Minecraft.");
+            return;
+        }
+        new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
+            if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+            if (list == null || list.versions == null || list.versions.length == 0) {
+                showError("Não foi possível carregar as versões do Minecraft.");
+                return;
+            }
+            net.kdt.pojavlaunch.extra.ExtraCore.setValue(
+                    net.kdt.pojavlaunch.extra.ExtraConstants.RELEASE_TABLE, list);
+
+            ArrayList<String> mcIds = new ArrayList<>();
+            for (JVersionList.Version v : list.versions) {
+                if (v != null && Tools.isValidString(v.id)) mcIds.add(v.id);
+            }
+            mcIds.sort(Comparator.naturalOrder());
+            String[] mcItems = mcIds.toArray(new String[0]);
+
+            new AlertDialog.Builder(this)
+                    .setTitle("1/3 • Minecraft")
+                    .setSingleChoiceItems(mcItems, Math.max(0, mcIds.indexOf(
+                            ensureInstance() != null ? ensureInstance().versionId : "")), null)
+                    .setPositiveButton("Próximo", (d, w) -> {
+                        android.widget.ListView lv = ((AlertDialog)d).getListView();
+                        int pos = lv.getCheckedItemPosition();
+                        if (pos < 0 || pos >= mcIds.size()) {
+                            showError("Selecione a versão do Minecraft.");
+                            return;
+                        }
+                        String mcVersion = mcIds.get(pos);
+                        loadForgeVersionsForCombined(mcVersion);
+                    })
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+        }));
+    }
+
+    private void loadForgeVersionsForCombined(String mcVersion) {
+        new Thread(() -> {
+            try {
+                List<String> allForge = net.kdt.pojavlaunch.modloaders.ForgelikeUtils.FORGE_UTILS.downloadVersions();
+                ArrayList<String> forgeVersions = new ArrayList<>();
+                if (allForge != null) {
+                    for (String v : allForge) {
+                        if (v != null && v.startsWith(mcVersion + "-")) forgeVersions.add(v);
+                    }
+                }
+                forgeVersions.sort(Comparator.naturalOrder());
+                runOnUiThread(() -> {
+                    if (forgeVersions.isEmpty()) {
+                        showError("Não existem versões do Forge disponíveis para Minecraft " + mcVersion + ".");
+                        return;
+                    }
+                    String[] items = forgeVersions.toArray(new String[0]);
+                    new AlertDialog.Builder(this)
+                            .setTitle("2/3 • Forge • Minecraft " + mcVersion)
+                            .setSingleChoiceItems(items, items.length - 1, null)
+                            .setPositiveButton("Próximo", (d, w) -> {
+                                int pos = ((AlertDialog)d).getListView().getCheckedItemPosition();
+                                if (pos < 0 || pos >= forgeVersions.size()) {
+                                    showError("Selecione a versão do Forge.");
+                                    return;
+                                }
+                                loadOptiFineVersionsForCombined(mcVersion, forgeVersions.get(pos));
+                            })
+                            .setNegativeButton("Voltar", (d, w) -> showForgeOptiFineInstaller())
+                            .show();
+                });
+            } catch (Throwable e) {
+                runOnUiThread(() -> showError("Falha ao carregar versões do Forge: " + safe(e)));
+            }
+        }).start();
+    }
+
+    private void loadOptiFineVersionsForCombined(String mcVersion, String forgeVersion) {
+        new Thread(() -> {
+            try {
+                net.kdt.pojavlaunch.modloaders.OptiFineUtils.OptiFineVersions data =
+                        net.kdt.pojavlaunch.modloaders.OptiFineUtils.downloadOptiFineVersions();
+                ArrayList<net.kdt.pojavlaunch.modloaders.OptiFineUtils.OptiFineVersion> ofVersions =
+                        new ArrayList<>();
+                if (data != null && data.gameVersions != null && data.optifineVersions != null) {
+                    for (int i = 0; i < data.gameVersions.size() && i < data.optifineVersions.size(); i++) {
+                        String game = data.gameVersions.get(i);
+                        if (game != null && game.startsWith(mcVersion)) {
+                            List<net.kdt.pojavlaunch.modloaders.OptiFineUtils.OptiFineVersion> group = data.optifineVersions.get(i);
+                            if (group != null) ofVersions.addAll(group);
+                        }
+                    }
+                }
+                ofVersions.sort((a,b) -> String.valueOf(a.versionName).compareTo(String.valueOf(b.versionName)));
+                runOnUiThread(() -> {
+                    if (ofVersions.isEmpty()) {
+                        showError("Não existem versões do OptiFine para Minecraft " + mcVersion + ".");
+                        return;
+                    }
+                    String[] items = new String[ofVersions.size()];
+                    for (int i = 0; i < items.length; i++) {
+                        items[i] = ofVersions.get(i).versionName + " • " + ofVersions.get(i).gameVersion;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("3/3 • OptiFine • Minecraft " + mcVersion)
+                            .setSingleChoiceItems(items, items.length - 1, null)
+                            .setPositiveButton("Instalar Forge + OptiFine", (d, w) -> {
+                                int pos = ((AlertDialog)d).getListView().getCheckedItemPosition();
+                                if (pos < 0 || pos >= ofVersions.size()) {
+                                    showError("Selecione a versão do OptiFine.");
+                                    return;
+                                }
+                                startCombinedForgeOptiFineInstall(mcVersion, forgeVersion, ofVersions.get(pos));
+                            })
+                            .setNegativeButton("Voltar", (d, w) -> loadForgeVersionsForCombined(mcVersion))
+                            .show();
+                });
+            } catch (Throwable e) {
+                runOnUiThread(() -> showError("Falha ao carregar versões do OptiFine: " + safe(e)));
+            }
+        }).start();
+    }
+
+    private void startCombinedForgeOptiFineInstall(
+            String mcVersion,
+            String forgeVersion,
+            net.kdt.pojavlaunch.modloaders.OptiFineUtils.OptiFineVersion optiFineVersion) {
+        new Thread(() -> {
+            try {
+                final net.kdt.pojavlaunch.instances.InstanceInstaller forgeInstaller =
+                        net.kdt.pojavlaunch.modloaders.ForgelikeUtils.FORGE_UTILS.createInstaller(forgeVersion);
+                final net.kdt.pojavlaunch.instances.InstanceInstaller optiFineInstaller =
+                        net.kdt.pojavlaunch.modloaders.OptiFineUtils.createInstaller(optiFineVersion);
+                if (forgeInstaller == null || optiFineInstaller == null) {
+                    throw new IOException("Não foi possível criar os instaladores selecionados.");
+                }
+
+                final String instanceName = "Forge + OptiFine " + mcVersion + " • " + forgeVersion.substring(mcVersion.length() + 1);
+                Instance instance = Instances.createInstance(i -> {
+                    i.name = instanceName;
+                    i.versionId = mcVersion;
+                    i.sharedData = true;
+                    i.installer = forgeInstaller;
+                }, "Forge-OptiFine");
+                Instances.setSelectedInstance(instance);
+
+                runOnUiThread(() -> {
+                    saveAllSettingsNow();
+                    setLoading(7, "Instalando Forge " + forgeVersion + "...");
+                    Toast.makeText(this, "Forge será instalado primeiro. Depois o OptiFine será aplicado na mesma instância.", Toast.LENGTH_LONG).show();
+                });
+
+                forgeInstaller.start();
+
+                // Wait for Pojav's normal installer post-check to finish Forge.
+                // Once the same instance has its Forge installer cleared, attach
+                // the selected OptiFine installer to that exact instance.
+                final long deadline = System.currentTimeMillis() + 15 * 60_000L;
+                while (System.currentTimeMillis() < deadline) {
+                    Thread.sleep(1500L);
+                    List<Instance> all = Instances.loadAllInstances();
+                    for (Instance candidate : all) {
+                        if (!instanceName.equals(candidate.name)) continue;
+                        if (candidate.installer != null) continue;
+                        candidate.installer = optiFineInstaller;
+                        candidate.write();
+                        Instances.setSelectedInstance(candidate);
+                        runOnUiThread(() -> {
+                            setLoading(7, "Instalando OptiFine " + optiFineVersion.versionName + "...");
+                            Toast.makeText(this, "Forge concluído. Instalando OptiFine " + optiFineVersion.versionName + "...", Toast.LENGTH_LONG).show();
+                        });
+                        optiFineInstaller.start();
+                        runOnUiThread(() -> setLoading(7, "Forge + OptiFine em instalação..."));
+                        return;
+                    }
+                }
+                runOnUiThread(() -> showError("O Forge não terminou dentro do tempo esperado. O instalador pode continuar em segundo plano."));
+            } catch (Throwable e) {
+                runOnUiThread(() -> showError("Falha no instalador Forge + OptiFine: " + safe(e)));
+            }
+        }).start();
     }
 
     private void openGenericModloaderInstaller() {
