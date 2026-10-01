@@ -1,3 +1,4 @@
+# APK build validation trigger
 #!/usr/bin/env bash
 set -euo pipefail
 
