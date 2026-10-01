@@ -36,7 +36,7 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                 'setTitle("MojoLauncher (" + version + ")");',
                 'setTitle("Mikael Launcher V3.1 (" + version + ")");'
             )
-    if p.name == "ControlLayout.java":
+        if p.name == "ControlLayout.java":
             old_method = """public void loadLayout(String jsonPath) throws IOException, JsonSyntaxException {
         CustomControls layout = LayoutConverter.loadAndConvertIfNecessary(jsonPath);
         if(layout != null) {
