@@ -698,4 +698,15 @@ s=s.replace('''    protected void onDestroy() {
 p.write_text(s,encoding="utf-8")
 PY
 
+# Never send installer notifications back to the legacy Pojav/Mojo launcher.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/instances/InstanceInstaller.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+s = s.replace("import net.kdt.pojavlaunch.LauncherActivity;", "import net.kdt.pojavlaunch.MikaelHomeActivity;", 1)
+s = s.replace("new Intent(context, LauncherActivity.class)", "new Intent(context, MikaelHomeActivity.class)", 1)
+p.write_text(s, encoding="utf-8")
+PY
+
 echo "Mikael overlay prepared successfully."
