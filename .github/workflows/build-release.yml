@@ -37,8 +37,8 @@ jobs:
           of_frag = (root / "java/net/kdt/pojavlaunch/fragments/OptiFineInstallFragment.java").read_text()
           installer = (root / "java/net/kdt/pojavlaunch/instances/InstanceInstaller.java").read_text()
           watcher = (root / "java/net/kdt/pojavlaunch/instances/profcompat/ProfileWatcher.java").read_text()
-          assert "CountDownLatch" in task and "await(15, TimeUnit.MINUTES)" in task
-          assert "Os metadados do Minecraft" in task
+          assert "downloadGame" in task
+          assert "prepareForInstall" in task
           assert "O link de download do OptiFine não está disponível." in of_utils
           assert "Não foi possível encontrar o link final do instalador do OptiFine." in (root / "java/net/kdt/pojavlaunch/modloaders/OFDownloadPageScraper.java").read_text()
           assert "Instances.setSelectedInstance(installedInstance);" in of_frag
