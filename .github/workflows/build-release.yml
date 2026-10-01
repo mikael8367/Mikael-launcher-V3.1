@@ -2,9 +2,13 @@ name: Build Mikael Launcher V3.1 APK
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'mikael_overlay/**'
+      - '.github/workflows/build-release.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -47,3 +51,11 @@ jobs:
           path: pojav-core/app_pojavlauncher/build/outputs/apk/full/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(find pojav-core/app_pojavlauncher/build/outputs/apk/full/debug -name '*.apk' -print -quit)
+          TAG="v3.1-build-${{ github.run_number }}"
+          gh release create "$TAG" "$APK"             --title "Mikael Launcher V3.1 • Build ${{ github.run_number }}"             --notes "APK debug gerado após auditoria de controles, versões e modloaders."             --prerelease
