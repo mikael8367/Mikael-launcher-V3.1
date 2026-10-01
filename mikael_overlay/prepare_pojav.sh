@@ -45,7 +45,7 @@ for suffix in ("*.xml", "*.java", "*.kt"):
             loadLayout(customControls);
             throw e;
         }"""
-            new_catch = """        }catch (IOException | JsonSyntaxException e) {
+            new_catch = """        }catch (Throwable e) {
             // Never crash the game because the default/custom control JSON is empty or corrupt.
             // The default layout can be regenerated from Pojav's built-in control definition.
             try {
@@ -279,6 +279,32 @@ s = s.replace(
             if(!isSaneData(drawerData.properties)) return false;
             sanitizeList(drawerData.buttonProperties);""", 1)
 p.write_text(s, encoding="utf-8")
+PY
+
+# Harden LayoutSanitizer against partially decoded/corrupt control lists.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/customcontrols/LayoutSanitizer.java" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+s=s.replace('''    private static boolean checkEntry(Object entry) {
+        if(entry instanceof ControlData) {''','''    private static boolean checkEntry(Object entry) {
+        if(entry == null) return false;
+        if(entry instanceof ControlData) {''',1)
+s=s.replace('''            ControlDrawerData drawerData = (ControlDrawerData) entry;
+            if(!isSaneData(drawerData.properties)) return false;
+            sanitizeList(drawerData.buttonProperties);''','''            ControlDrawerData drawerData = (ControlDrawerData) entry;
+            if(drawerData.properties == null || drawerData.buttonProperties == null) return false;
+            if(!isSaneData(drawerData.properties)) return false;
+            sanitizeList(drawerData.buttonProperties);''',1)
+s=s.replace('''    private static boolean sanitizeList(List<?> controlDataList) {
+        boolean madeChanges = false;''','''    private static boolean sanitizeList(List<?> controlDataList) {
+        if(controlDataList == null) return false;
+        boolean madeChanges = false;''',1)
+s=s.replace('''    public static boolean sanitizeLayout(CustomControls controls) {
+        boolean madeChanges = sanitizeList(controls.mControlDataList);''','''    public static boolean sanitizeLayout(CustomControls controls) {
+        if(controls == null) return false;
+        boolean madeChanges = sanitizeList(controls.mControlDataList);''',1)
+p.write_text(s,encoding="utf-8")
 PY
 
 # Validate null decoding explicitly before dereferencing a parsed layout.
