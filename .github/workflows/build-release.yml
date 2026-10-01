@@ -2,6 +2,7 @@ name: Build Mikael Launcher V3.1 APK
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     paths:
       - 'mikael_overlay/**'
