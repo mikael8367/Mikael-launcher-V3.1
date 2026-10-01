@@ -131,6 +131,101 @@ for suffix in ("*.xml", "*.java", "*.kt"):
             p.write_text(updated, encoding="utf-8")
 PY
 
+# Harden the generated control loader against partially valid JSON/layout objects.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/customcontrols/ControlLayout.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+
+s = s.replace(
+    "}catch (IOException | JsonSyntaxException e) {",
+    "}catch (Throwable e) {",
+    1
+)
+
+anchor = """\tpublic void loadLayout(CustomControls controlLayout) {
+\t\tthis.mButtonsOpacity = (float) LauncherPreferences.PREF_BUTTON_TRANSPARENCY / 100;
+\t\tboolean sanitizedModified = false;
+\t\tif(controlLayout != null) {
+\t\t\tsanitizedModified = LayoutSanitizer.sanitizeLayout(controlLayout);
+\t\t}"""
+replacement = """\tpublic void loadLayout(CustomControls controlLayout) {
+\t\tthis.mButtonsOpacity = (float) LauncherPreferences.PREF_BUTTON_TRANSPARENCY / 100;
+\t\tboolean sanitizedModified = false;
+\t\tif(controlLayout != null) {
+\t\t\tif(controlLayout.mControlDataList == null) controlLayout.mControlDataList = new ArrayList<>();
+\t\t\tif(controlLayout.mDrawerDataList == null) controlLayout.mDrawerDataList = new ArrayList<>();
+\t\t\tif(controlLayout.mJoystickDataList == null) controlLayout.mJoystickDataList = new ArrayList<>();
+\t\t\tif(controlLayout.mLayoutBitmaps == null) controlLayout.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+\t\t\tsanitizedModified = LayoutSanitizer.sanitizeLayout(controlLayout);
+\t\t}"""
+if anchor in s:
+    s=s.replace(anchor,replacement,1)
+elif replacement not in s:
+    raise SystemExit("ControlLayout normalization anchor not found")
+p.write_text(s, encoding="utf-8")
+PY
+
+# Make layout sanitization null-safe for partially broken JSON.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/customcontrols/LayoutSanitizer.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+s = s.replace(
+"""    private static boolean isValidFormula(String formula) {
+        return !formula.contains("Infinity") && !formula.contains("NaN");
+    }""",
+"""    private static boolean isValidFormula(String formula) {
+        return formula != null && !formula.contains("Infinity") && !formula.contains("NaN");
+    }""", 1)
+s = s.replace(
+"""    private static boolean isSaneData(ControlData controlData) {
+        if(controlData.getWidth() == 0 || controlData.getHeight() == 0) return false;
+        return isValidFormula(controlData.dynamicX) && isValidFormula(controlData.dynamicY);
+    }""",
+"""    private static boolean isSaneData(ControlData controlData) {
+        if(controlData == null) return false;
+        if(controlData.getWidth() == 0 || controlData.getHeight() == 0) return false;
+        return isValidFormula(controlData.dynamicX) && isValidFormula(controlData.dynamicY);
+    }""", 1)
+s = s.replace(
+"""    private static boolean checkEntry(Object entry) {
+        if(entry instanceof ControlData) {""",
+"""    private static boolean checkEntry(Object entry) {
+        if(entry == null) return false;
+        if(entry instanceof ControlData) {""", 1)
+s = s.replace(
+"""            ControlDrawerData drawerData = (ControlDrawerData) entry;
+            if(!isSaneData(drawerData.properties)) return false;
+            sanitizeList(drawerData.buttonProperties);""",
+"""            ControlDrawerData drawerData = (ControlDrawerData) entry;
+            if(drawerData.properties == null || drawerData.buttonProperties == null) return false;
+            if(!isSaneData(drawerData.properties)) return false;
+            sanitizeList(drawerData.buttonProperties);""", 1)
+p.write_text(s, encoding="utf-8")
+PY
+
+# Validate null decoding explicitly before dereferencing a parsed layout.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/customcontrols/LayoutConverter.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+old = """            CustomControls layout = Tools.GLOBAL_GSON.fromJson(jsonLayoutData, CustomControls.class);
+
+            if(layout.version > TARGET_VERSION)"""
+new = """            CustomControls layout = Tools.GLOBAL_GSON.fromJson(jsonLayoutData, CustomControls.class);
+            if(layout == null) throw new JsonSyntaxException("Control layout decoded to null");
+
+            if(layout.version > TARGET_VERSION)"""
+if old not in s:
+    raise SystemExit("LayoutConverter null-check anchor not found")
+s = s.replace(old,new,1)
+p.write_text(s, encoding="utf-8")
+PY
+
 # Remove unused upstream Pojav branding images from the launcher package.
 rm -f "$POJAV/src/main/res/drawable/ic_pojav_full.webp"
 rm -f "$POJAV/src/main/res/drawable/ic_setting_sign_in_background.webp"
