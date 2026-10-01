@@ -719,8 +719,19 @@ s=s.replace('''    protected void onDestroy() {
     }''','''    protected void onDestroy() {
         Tools.MAIN_HANDLER.removeCallbacks(mMikaelRamUpdater);
         android.view.Choreographer.getInstance().removeFrameCallback(mMikaelFpsCallback);
+        boolean mikaelManagedGame = false;
+        try {
+            android.content.Intent launchIntent = getIntent();
+            mikaelManagedGame = launchIntent != null
+                    && launchIntent.getBooleanExtra("mikael_managed_game", false);
+        } catch (Throwable ignored) {}
         super.onDestroy();
         ContextExecutor.clearActivity();
+        if (mikaelManagedGame) {
+            try {
+                moveTaskToBack(true);
+            } catch (Throwable ignored) {}
+        }
     }''',1)
 p.write_text(s,encoding="utf-8")
 PY
