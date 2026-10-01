@@ -21,17 +21,6 @@ python3 - "$POJAV/src/main" <<'PY'
 from pathlib import Path
 import sys
 root = Path(sys.argv[1])
-# Keep the game activity branded as Mikael Launcher instead of the upstream MojoLauncher title.
-python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/game/GameActivity.java" <<'PY'
-from pathlib import Path
-p = Path(__import__("sys").argv[1])
-s = p.read_text(encoding="utf-8")
-s = s.replace(
-    'setTitle("MojoLauncher (" + version + ")");',
-    'setTitle("Mikael Launcher V3.1 (" + version + ")");'
-)
-p.write_text(s, encoding="utf-8")
-PY
 
 for suffix in ("*.xml", "*.java", "*.kt"):
     for p in root.rglob(suffix):
@@ -42,6 +31,11 @@ for suffix in ("*.xml", "*.java", "*.kt"):
         updated = text.replace("ic_pojav_full", "ic_mikael_logo").replace(
             "ic_setting_sign_in_background", "bg_mikael_gradient"
         )
+        if p.name == "GameActivity.java":
+            updated = updated.replace(
+                'setTitle("MojoLauncher (" + version + ")");',
+                'setTitle("Mikael Launcher V3.1 (" + version + ")");'
+            )
         if updated != text:
             p.write_text(updated, encoding="utf-8")
 PY
