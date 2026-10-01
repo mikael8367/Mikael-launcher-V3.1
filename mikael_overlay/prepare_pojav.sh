@@ -783,6 +783,33 @@ s = s.replace(
 p.write_text(s, encoding="utf-8")
 PY
 
+# Make a newly installed OptiFine instance the active instance.
+# Upstream creates it but does not select it, so the launcher can continue launching
+# the previously selected vanilla instance after installation.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/fragments/OptiFineInstallFragment.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+old = """            Instances.createInstance(instance -> {
+                instance.name = "OptiFine";
+                instance.installer = instanceInstaller;
+                instance.sharedData = true;
+            }, "OptiFine");
+            ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);"""
+new = """            Instance installedInstance = Instances.createInstance(instance -> {
+                instance.name = "OptiFine";
+                instance.installer = instanceInstaller;
+                instance.sharedData = true;
+            }, "OptiFine");
+            Instances.setSelectedInstance(installedInstance);
+            ProgressLayout.clearProgress(ProgressLayout.INSTALL_MODPACK);"""
+if old not in s:
+    raise SystemExit("OptiFine instance creation block not found")
+s = s.replace(old, new, 1)
+p.write_text(s, encoding="utf-8")
+PY
+
 # Never send installer notifications back to the legacy Pojav/Mojo launcher.
 python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/instances/InstanceInstaller.java" <<'PY'
 from pathlib import Path
