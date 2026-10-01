@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/mikael_root" android:layout_width="match_parent" android:layout_height="match_parent">
 <ImageView android:id="@+id/mikael_background" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:alpha="0.28" android:src="@drawable/bg_mikael_gradient"/>
 <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_mikael_overlay"/>
-<LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:padding="22dp" android:weightSum="4.9">
+<LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:padding="20dp" android:weightSum="4.9">
 
 <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.05" android:orientation="vertical" android:paddingEnd="14dp">
 <LinearLayout android:id="@+id/account_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/card_mikael" android:padding="16dp">
@@ -25,7 +25,7 @@
 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Minecraft Java Edition" android:textColor="@color/mikael_text_primary" android:textStyle="bold" android:textSize="28sp" android:layout_marginTop="6dp"/>
 <TextView android:id="@+id/load_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pronto para jogar" android:textColor="@color/mikael_text_secondary" android:textSize="12sp" android:layout_marginTop="10dp"/>
 <ProgressBar android:id="@+id/launch_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="7dp" android:max="100" android:visibility="gone" android:layout_marginTop="10dp"/>
-<Button android:id="@+id/play_button" android:layout_width="match_parent" android:layout_height="70dp" android:layout_marginTop="18dp" android:background="@drawable/button_mikael_play" android:text="JOGAR" android:textAllCaps="false" android:textColor="@color/mikael_button_text" android:textSize="22sp" android:textStyle="bold" android:elevation="8dp"/>
+<Button android:id="@+id/play_button" android:layout_width="match_parent" android:layout_height="72dp" android:layout_marginTop="18dp" android:background="@drawable/button_mikael_play" android:text="▶  JOGAR" android:textAllCaps="false" android:textColor="@color/mikael_button_text" android:textSize="22sp" android:textStyle="bold" android:elevation="8dp"/>
 <Button android:id="@+id/installed_versions_button" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="8dp" android:background="@drawable/button_mikael_nav" android:text="📦  Versões" android:textAllCaps="false" android:textColor="@color/mikael_text_primary" android:textSize="16sp"/>
 <Button android:id="@+id/configure_version_button" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="8dp" android:background="@drawable/button_mikael_nav" android:text="⚙️  Configurar versão" android:textAllCaps="false" android:textColor="@color/mikael_text_primary" android:textSize="16sp"/>
 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Minecraft • perfil configurável • memória configurável" android:textColor="@color/mikael_text_secondary" android:textSize="12sp" android:layout_marginTop="10dp"/>
@@ -33,8 +33,8 @@
 </LinearLayout>
 
 <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.8" android:orientation="vertical" android:gravity="center_vertical" android:paddingStart="14dp">
-<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="NAVEGAÇÃO" android:textColor="@color/mikael_text_secondary" android:textSize="11sp" android:textStyle="bold" android:paddingBottom="8dp"/>
-<Button android:id="@+id/nav_home" android:layout_width="match_parent" android:layout_height="42dp" android:text="🏠  Início" android:background="@drawable/button_mikael_nav" android:textColor="@color/mikael_text_primary" android:textAllCaps="false"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ACESSO RÁPIDO" android:textColor="@color/mikael_text_secondary" android:textSize="11sp" android:textStyle="bold" android:paddingBottom="8dp"/>
+<Button android:id="@+id/nav_home" android:layout_width="match_parent" android:layout_height="44dp" android:text="🏠  Início" android:background="@drawable/button_mikael_nav" android:textColor="@color/mikael_text_primary" android:textAllCaps="false"/>
 <Button android:id="@+id/nav_play" android:layout_width="match_parent" android:layout_height="42dp" android:text="🎮  Jogar" android:background="@drawable/button_mikael_nav" android:textColor="@color/mikael_text_primary" android:textAllCaps="false"/>
 <Button android:id="@+id/nav_versions" android:layout_width="match_parent" android:layout_height="42dp" android:text="📦  Versões" android:background="@drawable/button_mikael_nav" android:textColor="@color/mikael_text_primary" android:textAllCaps="false"/>
 <Button android:id="@+id/nav_mods" android:layout_width="match_parent" android:layout_height="42dp" android:text="🧩  Mods" android:background="@drawable/button_mikael_nav" android:textColor="@color/mikael_text_primary" android:textAllCaps="false"/>
