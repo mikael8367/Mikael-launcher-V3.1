@@ -1720,13 +1720,12 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showGameSettings() {
-        String[] values = {"🎮 Versão padrão: " + selectedVersion.getText(), "👤 Perfil padrão: perfil atual", "📁 Diretório do Minecraft", "▶️ Iniciar automaticamente", "🚪 Fechar launcher ao iniciar: não fecha manualmente"};
+        String[] values = {"🎮 Versão padrão: " + selectedVersion.getText(), "👤 Perfil padrão: perfil atual", "📁 Diretório do Minecraft", "🚪 Fechar launcher ao iniciar: não fecha manualmente"};
         new AlertDialog.Builder(this).setTitle("🎮 Jogo").setItems(values, (d,w) -> {
             if (w == 0) showVersions();
             else if (w == 1) Toast.makeText(this, "O perfil selecionado é o perfil usado pelo botão JOGAR.", Toast.LENGTH_LONG).show();
             else if (w == 2) openPath(Instances.loadSelectedInstance() == null ? Instances.SHARED_DATA_DIRECTORY : Instances.loadSelectedInstance().getGameDirectory());
-            else if (w == 3) togglePref("auto_start", "Iniciar automaticamente");
-            else if (w == 4) Toast.makeText(this, "O launcher permanece aberto em segundo plano e não inicia Minecraft novamente ao ser reaberto.", Toast.LENGTH_LONG).show();
+            else if (w == 3) Toast.makeText(this, "O Mikael Launcher permanece como launcher principal; o launcher legado não é reaberto.", Toast.LENGTH_LONG).show();
         }).show();
     }
 
