@@ -241,11 +241,10 @@ public class MikaelHomeActivity extends BaseActivity {
                 throw new IOException("Não foi possível criar a pasta de controles.");
             }
 
-            net.kdt.pojavlaunch.customcontrols.CustomControls controls =
-                    new net.kdt.pojavlaunch.customcontrols.CustomControls(this);
-            controls.mLayoutBitmaps =
-                    net.kdt.pojavlaunch.customcontrols.LayoutBitmaps.createEmpty();
-            controls.save(target.getAbsolutePath());
+            // Generate Pojav's real built-in default controls. Do not replace
+            // them with an empty layout: that would make the initial controls disappear.
+            new net.kdt.pojavlaunch.customcontrols.CustomControls(this)
+                    .save(target.getAbsolutePath());
 
             if (!target.isFile() || target.length() == 0) {
                 throw new IOException("O controle padrão não foi criado.");
@@ -256,7 +255,15 @@ public class MikaelHomeActivity extends BaseActivity {
         }
     }
 
-    @Override protected void onResume() { super.onResume(); net.kdt.pojavlaunch.instances.InstanceInstaller.postInstallCheck(this); refreshDashboard(); }
+    @Override protected void onResume() {
+        super.onResume();
+        try {
+            net.kdt.pojavlaunch.instances.InstanceInstaller.postInstallCheck(this);
+        } catch (Throwable error) {
+            android.util.Log.e("MikaelInstaller", "Falha na finalização do instalador.", error);
+        }
+        refreshDashboard();
+    }
 
     @Override protected void onDestroy() {
         saveAllSettingsNow();
