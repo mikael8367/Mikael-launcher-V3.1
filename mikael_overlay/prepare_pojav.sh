@@ -158,7 +158,31 @@ replacement = """\tpublic void loadLayout(CustomControls controlLayout) {
 \t\t\tif(controlLayout.mDrawerDataList == null) controlLayout.mDrawerDataList = new ArrayList<>();
 \t\t\tif(controlLayout.mJoystickDataList == null) controlLayout.mJoystickDataList = new ArrayList<>();
 \t\t\tif(controlLayout.mLayoutBitmaps == null) controlLayout.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+\t\t\tif(Float.isNaN(controlLayout.scaledAt) || Float.isInfinite(controlLayout.scaledAt) || controlLayout.scaledAt <= 0) {
+\t\t\t\tcontrolLayout.scaledAt = 100f;
+\t\t\t}
 \t\t\tsanitizedModified = LayoutSanitizer.sanitizeLayout(controlLayout);
+\t\t\tfor(ControlData data : controlLayout.mControlDataList) {
+\t\t\t\tif(Tools.isValidString(data.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(data.bitmapTag) == null) {
+\t\t\t\t\tdata.bitmapTag = null;
+\t\t\t\t}
+\t\t\t}
+\t\t\tfor(ControlData data : controlLayout.mJoystickDataList) {
+\t\t\t\tif(Tools.isValidString(data.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(data.bitmapTag) == null) {
+\t\t\t\t\tdata.bitmapTag = null;
+\t\t\t\t}
+\t\t\t}
+\t\t\tfor(ControlDrawerData drawer : controlLayout.mDrawerDataList) {
+\t\t\t\tif(drawer.orientation == null) drawer.orientation = ControlDrawerData.Orientation.LEFT;
+\t\t\t\tif(Tools.isValidString(drawer.properties.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(drawer.properties.bitmapTag) == null) {
+\t\t\t\t\tdrawer.properties.bitmapTag = null;
+\t\t\t\t}
+\t\t\t\tfor(ControlData data : drawer.buttonProperties) {
+\t\t\t\t\tif(Tools.isValidString(data.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(data.bitmapTag) == null) {
+\t\t\t\t\t\tdata.bitmapTag = null;
+\t\t\t\t\t}
+\t\t\t\t}
+\t\t\t}
 \t\t}"""
 if anchor in s:
     s=s.replace(anchor,replacement,1)
