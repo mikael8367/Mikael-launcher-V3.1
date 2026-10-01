@@ -169,9 +169,6 @@ public class MikaelHomeActivity extends BaseActivity {
         refreshDashboard();
         if (state == null && !prefs.getBoolean("optifine_1122_setup_started", false)) {
             openFirstRunOptiFine();
-        } else if (state == null && prefs.getBoolean("auto_start", false)) {
-            getWindow().getDecorView().postDelayed(this::playGame, 350);
-        }
     }
 
     /**
@@ -461,9 +458,6 @@ public class MikaelHomeActivity extends BaseActivity {
                     intent.putExtra(net.kdt.pojavlaunch.game.GameActivity.INTENT_LAUNCH_CLASSPATH, classpath);
                     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
                     activity.startActivity(intent);
-                    // Keep Mikael Launcher alive in the background instead of finishing
-                    // or killing its process like the upstream listener does.
-                    activity.moveTaskToBack(true);
                 } catch (Throwable error) {
                     activity.showError("Não foi possível iniciar Minecraft " + version + ": " + activity.safe(error));
                 }
@@ -1303,13 +1297,13 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showGameSettings() {
-        String[] values = {"🎮 Versão padrão: " + selectedVersion.getText(), "👤 Perfil padrão: perfil atual", "📁 Diretório do Minecraft", "▶️ Iniciar automaticamente", "🚪 Fechar launcher ao iniciar: automático"};
+        String[] values = {"🎮 Versão padrão: " + selectedVersion.getText(), "👤 Perfil padrão: perfil atual", "📁 Diretório do Minecraft", "▶️ Iniciar automaticamente", "🚪 Fechar launcher ao iniciar: não fecha manualmente"};
         new AlertDialog.Builder(this).setTitle("🎮 Jogo").setItems(values, (d,w) -> {
             if (w == 0) showVersions();
             else if (w == 1) Toast.makeText(this, "O perfil selecionado é o perfil usado pelo botão JOGAR.", Toast.LENGTH_LONG).show();
             else if (w == 2) openPath(Instances.loadSelectedInstance() == null ? Instances.SHARED_DATA_DIRECTORY : Instances.loadSelectedInstance().getGameDirectory());
             else if (w == 3) togglePref("auto_start", "Iniciar automaticamente");
-            else if (w == 4) Toast.makeText(this, "O Core fecha o launcher automaticamente quando o GameActivity é iniciado.", Toast.LENGTH_LONG).show();
+            else if (w == 4) Toast.makeText(this, "O launcher permanece aberto em segundo plano e não inicia Minecraft novamente ao ser reaberto.", Toast.LENGTH_LONG).show();
         }).show();
     }
 
