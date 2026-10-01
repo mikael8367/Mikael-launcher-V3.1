@@ -225,6 +225,18 @@ insert='''    <!-- Mikael performance settings -->
 '''
 if anchor not in s: raise SystemExit("layout anchor not found")
 s=s.replace(anchor,insert+anchor,1)
+s=s.replace('''    <!-- button transparency seekbar -->
+    <TextView
+        android:id="@+id/buttonTransparency_textView"''', '''    <!-- button transparency seekbar -->
+    <TextView
+        android:id="@+id/buttonTransparency_textView"''')
+s=s.replace('''        android:text="@string/preference_button_transparency"
+
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/editGestureDelay_seekbar" />''','''        android:text="@string/preference_button_transparency"
+
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/mikael_show_ram" />''',1)
 p.write_text(s,encoding="utf-8")
 PY
 
