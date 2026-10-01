@@ -491,19 +491,21 @@ s=s.replace('private QuickSettingSideDialog mQuickSettingSideDialog;',
     private long mMikaelFpsFrames;
     private long mMikaelFpsWindowStart;
     private boolean mMikaelFpsEnabled;
-    private final android.view.Choreographer.FrameCallback mMikaelFpsCallback = frameTimeNanos -> {
-        if (!mMikaelFpsEnabled) return;
-        mMikaelFpsFrames++;
-        long now = android.os.SystemClock.elapsedRealtime();
-        if (mMikaelFpsWindowStart == 0) mMikaelFpsWindowStart = now;
-        long elapsed = now - mMikaelFpsWindowStart;
-        if (elapsed >= 1000 && mMikaelFpsOverlay != null) {
-            float fps = mMikaelFpsFrames * 1000f / elapsed;
-            mMikaelFpsOverlay.setText(String.format(java.util.Locale.US, "FPS: %.0f", fps));
-            mMikaelFpsFrames = 0;
-            mMikaelFpsWindowStart = now;
+    private final android.view.Choreographer.FrameCallback mMikaelFpsCallback = new android.view.Choreographer.FrameCallback() {
+        @Override public void doFrame(long frameTimeNanos) {
+            if (!mMikaelFpsEnabled) return;
+            mMikaelFpsFrames++;
+            long now = android.os.SystemClock.elapsedRealtime();
+            if (mMikaelFpsWindowStart == 0) mMikaelFpsWindowStart = now;
+            long elapsed = now - mMikaelFpsWindowStart;
+            if (elapsed >= 1000 && mMikaelFpsOverlay != null) {
+                float fps = mMikaelFpsFrames * 1000f / elapsed;
+                mMikaelFpsOverlay.setText(String.format(java.util.Locale.US, "FPS: %.0f", fps));
+                mMikaelFpsFrames = 0;
+                mMikaelFpsWindowStart = now;
+            }
+            android.view.Choreographer.getInstance().postFrameCallback(this);
         }
-        android.view.Choreographer.getInstance().postFrameCallback(mMikaelFpsCallback);
     };
     private final Runnable mMikaelRamUpdater = new Runnable() {
         @Override public void run() {
