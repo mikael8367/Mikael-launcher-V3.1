@@ -713,12 +713,26 @@ public class MikaelHomeActivity extends BaseActivity {
             instance.versionId = "1.12.2";
             if (!Tools.isValidString(instance.name)) instance.name = "1.12.2 OptiFine";
             instance.maybeWrite();
-            prefs.edit().putBoolean("optifine_1122_setup_started", true).apply();
             refreshDashboard();
-            getWindow().getDecorView().postDelayed(() -> {
+
+            // OptiFineDownloadTask resolves the base Minecraft version through
+            // MoJsonExtras.RELEASE_TABLE. The first-run flow can happen before
+            // the normal version screen has loaded that table, so populate it
+            // explicitly before opening the real OptiFine installer.
+            new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
                 if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
-                openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine");
-            }, 700);
+                if (list == null || list.versions == null) {
+                    showError("Não foi possível carregar a lista de versões do Minecraft para instalar o OptiFine 1.12.2.");
+                    return;
+                }
+                net.kdt.pojavlaunch.extra.ExtraCore.setValue(
+                        net.kdt.pojavlaunch.extra.ExtraConstants.RELEASE_TABLE, list);
+                prefs.edit().putBoolean("optifine_1122_setup_started", true).apply();
+                getWindow().getDecorView().postDelayed(() -> {
+                    if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
+                    openRealModloaderInstaller(net.kdt.pojavlaunch.fragments.OptiFineInstallFragment.class, "OptiFine");
+                }, 250);
+            }));
         } catch (Throwable e) {
             showError("Não foi possível preparar o OptiFine 1.12.2: " + safe(e));
         }
