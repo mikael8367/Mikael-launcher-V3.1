@@ -50,6 +50,11 @@ import net.kdt.pojavlaunch.tasks.AsyncVersionList;
 import net.kdt.pojavlaunch.tasks.MoJsonDownloader;
 import net.kdt.pojavlaunch.tasks.MoJsonExtras;
 import net.kdt.pojavlaunch.utils.FileUtils;
+import net.kdt.pojavlaunch.modloaders.modpacks.api.CurseforgeApi;
+import net.kdt.pojavlaunch.modloaders.modpacks.models.ModDetail;
+import net.kdt.pojavlaunch.modloaders.modpacks.models.ModItem;
+import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchFilters;
+import net.kdt.pojavlaunch.modloaders.modpacks.models.SearchResult;
 
 import java.io.File;
 import java.io.IOException;
@@ -271,6 +276,7 @@ public class MikaelHomeActivity extends BaseActivity {
         click(R.id.play_button, v -> playGame());
         click(R.id.installed_versions_button, v -> showInstalledVersions());
         click(R.id.configure_version_button, v -> showVersionConfiguration());
+        click(R.id.curseforge_pack_button, v -> showCurseForgePacks());
         click(R.id.account_card, v -> showAccounts());
     }
 
@@ -281,7 +287,7 @@ public class MikaelHomeActivity extends BaseActivity {
 
     private void animateButtons() {
         int mode = prefs == null ? 0 : prefs.getInt("animations", 0);
-        int[] ids = {R.id.play_button,R.id.installed_versions_button,R.id.configure_version_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
+        int[] ids = {R.id.play_button,R.id.installed_versions_button,R.id.configure_version_button,R.id.curseforge_pack_button,R.id.nav_home,R.id.nav_play,R.id.nav_versions,R.id.nav_mods,R.id.nav_accounts,R.id.nav_java,R.id.nav_settings,R.id.nav_files,R.id.nav_logs,R.id.account_card};
         for (int id : ids) {
             View view = findViewById(id);
             if (view == null) continue;
@@ -642,6 +648,161 @@ public class MikaelHomeActivity extends BaseActivity {
         else return;
         if(file.renameTo(target)) showVersionConfiguration();
         else showError("Não foi possível alterar o mod.");
+    }
+
+    private void showCurseForgePacks() {
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("Nome do modpack");
+        input.setPadding(24, 8, 24, 8);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("📦 Resolver Pack • CurseForge")
+                .setMessage("Pesquise somente modpacks do CurseForge. O pack escolhido será instalado automaticamente como uma nova instância.")
+                .setView(input)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Pesquisar", null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String query = input.getText().toString().trim();
+            if (query.length() < 2) {
+                input.setError("Digite pelo menos 2 caracteres");
+                return;
+            }
+            dialog.dismiss();
+            searchCurseForgePacks(query);
+        }));
+        dialog.show();
+        input.requestFocus();
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+    }
+
+    private void searchCurseForgePacks(String query) {
+        String apiKey;
+        try {
+            apiKey = getString(R.string.curseforge_api_key).trim();
+        } catch (Throwable error) {
+            showError("A API do CurseForge não está configurada.");
+            return;
+        }
+        if (!Tools.isValidString(apiKey) || "DUMMY".equalsIgnoreCase(apiKey)) {
+            showError("A API do CurseForge não está configurada no build. Configure CURSEFORGE_API_KEY antes de gerar o APK.");
+            return;
+        }
+
+        setLoading(8, "Pesquisando packs no CurseForge...");
+        new Thread(() -> {
+            try {
+                SearchFilters filters = new SearchFilters();
+                filters.isModpack = true;
+                filters.name = query;
+                filters.mcVersion = null;
+
+                CurseforgeApi api = new CurseforgeApi(apiKey);
+                SearchResult result = api.searchMod(filters);
+                if (result == null || result.results == null || result.results.length == 0) {
+                    runOnUiThread(() -> showError("Nenhum modpack do CurseForge foi encontrado para: " + query));
+                    return;
+                }
+
+                ArrayList<ModItem> packs = new ArrayList<>();
+                for (ModItem item : result.results) {
+                    if (item != null && item.isModpack) packs.add(item);
+                }
+                runOnUiThread(() -> showCurseForgePackResults(api, packs));
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Falha ao pesquisar no CurseForge: " + safe(error)));
+            }
+        }, "mikael-curseforge-search").start();
+    }
+
+    private void showCurseForgePackResults(CurseforgeApi api, ArrayList<ModItem> packs) {
+        if (packs == null || packs.isEmpty()) {
+            showError("Nenhum modpack do CurseForge disponível.");
+            return;
+        }
+        String[] names = new String[Math.min(packs.size(), 30)];
+        for (int i = 0; i < names.length; i++) {
+            ModItem item = packs.get(i);
+            names[i] = item.title + (Tools.isValidString(item.description) ? "\\n" + item.description : "");
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("📦 Packs encontrados (" + names.length + ")")
+                .setItems(names, (d, which) -> loadCurseForgePackDetails(api, packs.get(which)))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void loadCurseForgePackDetails(CurseforgeApi api, ModItem item) {
+        setLoading(10, "Carregando versões de " + item.title + "...");
+        new Thread(() -> {
+            try {
+                ModDetail detail = api.getModDetails(item);
+                if (detail == null || detail.versionNames == null || detail.versionNames.length == 0) {
+                    runOnUiThread(() -> showError("O CurseForge não forneceu versões instaláveis para " + item.title + "."));
+                    return;
+                }
+
+                ArrayList<Integer> validIndexes = new ArrayList<>();
+                for (int i = 0; i < detail.versionNames.length; i++) {
+                    if (detail.versionUrls[i] != null && detail.mcVersionNames[i] != null) {
+                        validIndexes.add(i);
+                    }
+                }
+                if (validIndexes.isEmpty()) {
+                    runOnUiThread(() -> showError("Nenhuma versão Minecraft instalável foi encontrada para " + item.title + "."));
+                    return;
+                }
+
+                String[] versions = new String[Math.min(validIndexes.size(), 40)];
+                int[] indexes = new int[versions.length];
+                for (int i = 0; i < versions.length; i++) {
+                    indexes[i] = validIndexes.get(i);
+                    versions[i] = detail.versionNames[indexes[i]];
+                }
+                runOnUiThread(() -> showCurseForgePackVersions(api, detail, versions, indexes));
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Falha ao carregar o pack: " + safe(error)));
+            }
+        }, "mikael-curseforge-details").start();
+    }
+
+    private void showCurseForgePackVersions(CurseforgeApi api, ModDetail detail, String[] versions, int[] indexes) {
+        new AlertDialog.Builder(this)
+                .setTitle("📦 " + detail.title)
+                .setItems(versions, (d, which) -> {
+                    int selected = indexes[which];
+                    new AlertDialog.Builder(this)
+                            .setTitle("Instalar modpack?")
+                            .setMessage(detail.title + "\\n\\n" + detail.versionNames[selected] +
+                                    "\\nMinecraft " + detail.mcVersionNames[selected] +
+                                    "\\n\\nO CurseForge será baixado e instalado automaticamente.")
+                            .setNegativeButton("Cancelar", null)
+                            .setPositiveButton("Instalar", (dialog, w) -> installCurseForgePack(api, detail, selected))
+                            .show();
+                })
+                .setNegativeButton("Voltar", null)
+                .show();
+    }
+
+    private void installCurseForgePack(CurseforgeApi api, ModDetail detail, int selectedVersion) {
+        saveAllSettingsNow();
+        setLoading(12, "Instalando " + detail.title + "...");
+        net.kdt.pojavlaunch.progresskeeper.ProgressLayout.setProgress(
+                net.kdt.pojavlaunch.progresskeeper.ProgressLayout.INSTALL_MODPACK, 0, 0);
+        net.kdt.pojavlaunch.PojavApplication.sExecutorService.execute(() -> {
+            try {
+                api.installModpack(detail, selectedVersion);
+                runOnUiThread(() -> {
+                    refreshDashboard();
+                    Toast.makeText(this, "Pack instalado. A instância foi selecionada automaticamente.", Toast.LENGTH_LONG).show();
+                    loadStatus.setText("Pack instalado • pronto para jogar");
+                });
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Falha ao instalar o pack: " + safe(error)));
+            }
+        });
     }
 
     private void showInstalledVersions() {
