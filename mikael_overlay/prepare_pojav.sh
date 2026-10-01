@@ -1106,3 +1106,5 @@ p.write_text(s,encoding="utf-8")
 PY
 
 echo "Mikael overlay prepared successfully."
+
+# APK validation trigger: controls + OptiFine + launcher flow
