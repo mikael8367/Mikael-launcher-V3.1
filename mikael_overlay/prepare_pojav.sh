@@ -131,6 +131,50 @@ for suffix in ("*.xml", "*.java", "*.kt"):
             p.write_text(updated, encoding="utf-8")
 PY
 
+
+# Prevent OptiFine/base-game installers from waiting forever when the asynchronous
+# downloader throws a RuntimeException before invoking its completion callback.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/tasks/MoJsonDownloader.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+old = """            } catch(RuntimeException e) {
+                throw e; // log fatal errors to Google Play
+            } catch (Exception e) {
+                listener.onDownloadFailed(e);
+            }"""
+new = """            } catch(RuntimeException e) {
+                // Always notify callers. Modloader installers (notably OptiFine)
+                // wait for this callback and otherwise can remain stuck forever.
+                listener.onDownloadFailed(e);
+            } catch (Exception e) {
+                listener.onDownloadFailed(e);
+            }"""
+if old not in s:
+    raise SystemExit("MoJsonDownloader callback block not found")
+p.write_text(s.replace(old, new, 1), encoding="utf-8")
+PY
+
+# Add a bounded wait to OptiFine's base-Minecraft preparation.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OptiFineDownloadTask.java" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+s = s.replace(
+"""                new MoJsonDownloader().start(null, versionMeta, gameVersion, this);
+                mDownloadLock.wait();""",
+"""                new MoJsonDownloader().start(null, versionMeta, gameVersion, this);
+                mDownloadLock.wait(180000L);
+                if (mDownloaderThrowable == null && !new File(
+                        MoJsonDownloader.createGameJarPath(gameVersion)).isFile()) {
+                    throw new Exception("Tempo esgotado ao preparar Minecraft " + gameVersion + ".");
+                }""",
+1)
+p.write_text(s, encoding="utf-8")
+PY
+
 # Harden the generated control loader against partially valid JSON/layout objects.
 python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/customcontrols/ControlLayout.java" <<'PY'
 from pathlib import Path
