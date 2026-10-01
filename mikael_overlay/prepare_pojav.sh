@@ -167,8 +167,7 @@ s = s.replace(
                 mDownloadLock.wait();""",
 """                new MoJsonDownloader().start(null, versionMeta, gameVersion, this);
                 mDownloadLock.wait(180000L);
-                if (mDownloaderThrowable == null && !new File(
-                        MoJsonDownloader.createGameJarPath(gameVersion)).isFile()) {
+                if (mDownloaderThrowable == null && !MoJsonDownloader.createGameJarPath(gameVersion).isFile()) {
                     throw new Exception("Tempo esgotado ao preparar Minecraft " + gameVersion + ".");
                 }""",
 1)
