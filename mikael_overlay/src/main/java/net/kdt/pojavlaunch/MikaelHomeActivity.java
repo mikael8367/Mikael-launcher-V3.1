@@ -171,7 +171,7 @@ public class MikaelHomeActivity extends BaseActivity {
         }
     }
 
-    @Override protected void onResume() { super.onResume(); refreshDashboard(); }
+    @Override protected void onResume() { super.onResume(); net.kdt.pojavlaunch.instances.InstanceInstaller.postInstallCheck(this); refreshDashboard(); }
 
     @Override protected void onDestroy() {
         saveAllSettingsNow();
@@ -828,11 +828,7 @@ public class MikaelHomeActivity extends BaseActivity {
         // Combined installer: Minecraft -> Forge -> OptiFine.
         // The selected versions are kept together so OptiFine is installed on
         // the Forge instance instead of creating an unrelated standalone profile.
-        if (selectedVersion == null) {
-            showError("Selecione primeiro uma versão do Minecraft.");
-            return;
-        }
-        new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
+                new AsyncVersionList().getVersionList(list -> runOnUiThread(() -> {
             if (isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && isDestroyed())) return;
             if (list == null || list.versions == null || list.versions.length == 0) {
                 showError("Não foi possível carregar as versões do Minecraft.");
@@ -914,7 +910,7 @@ public class MikaelHomeActivity extends BaseActivity {
                 if (data != null && data.gameVersions != null && data.optifineVersions != null) {
                     for (int i = 0; i < data.gameVersions.size() && i < data.optifineVersions.size(); i++) {
                         String game = data.gameVersions.get(i);
-                        if (game != null && game.startsWith(mcVersion)) {
+                        if (game != null && game.equals(mcVersion)) {
                             List<net.kdt.pojavlaunch.modloaders.OptiFineUtils.OptiFineVersion> group = data.optifineVersions.get(i);
                             if (group != null) ofVersions.addAll(group);
                         }
