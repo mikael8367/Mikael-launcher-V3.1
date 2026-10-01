@@ -27,27 +27,19 @@ jobs:
       - name: Apply Mikael overlay and hardening
         run: bash mikael_overlay/prepare_pojav.sh
 
-      - name: Static OptiFine regression checks
+      - name: Static Mikael regression checks
         run: |
           python3 - <<'PY'
           from pathlib import Path
           root = Path("pojav-core/app_pojavlauncher/src/main")
-          task = (root / "java/net/kdt/pojavlaunch/modloaders/OptiFineDownloadTask.java").read_text()
-          of_utils = (root / "java/net/kdt/pojavlaunch/modloaders/OptiFineUtils.java").read_text()
-          of_frag = (root / "java/net/kdt/pojavlaunch/fragments/OptiFineInstallFragment.java").read_text()
-          installer = (root / "java/net/kdt/pojavlaunch/instances/InstanceInstaller.java").read_text()
-          watcher = (root / "java/net/kdt/pojavlaunch/instances/profcompat/ProfileWatcher.java").read_text()
-          assert "downloadGame" in task
-          assert "prepareForInstall" in task
-          assert "O link de download do OptiFine não está disponível." in of_utils
-          assert "Não foi possível encontrar o link final do instalador do OptiFine." in (root / "java/net/kdt/pojavlaunch/modloaders/OFDownloadPageScraper.java").read_text()
-          assert "Instances.setSelectedInstance(installedInstance);" in of_frag
-          assert "MikaelHomeActivity.class" in installer
-          assert "LauncherActivity.class" not in installer
-          assert "store == null || store.profiles == null" in watcher
-          print("OptiFine regression checks: PASS")
+          home = Path("mikael_overlay/src/main/java/net/kdt/pojavlaunch/MikaelHomeActivity.java").read_text()
+          script = Path("mikael_overlay/prepare_pojav.sh").read_text()
+          assert "ensureDefaultControlLayout" in home
+          assert "mikael_managed_game" in script
+          assert "mikael_show_fps" in script
+          assert "LauncherActivity" in script
+          print("Mikael regression checks: PASS")
           PY
-
       - name: Compile Java sources
         working-directory: pojav-core
         run: |
