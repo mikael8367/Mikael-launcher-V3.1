@@ -792,6 +792,7 @@ from pathlib import Path
 import sys
 p = Path(sys.argv[1])
 s = p.read_text(encoding="utf-8")
+s = s.replace("import net.kdt.pojavlaunch.instances.Instances;", "import net.kdt.pojavlaunch.instances.Instance;\nimport net.kdt.pojavlaunch.instances.Instances;", 1)
 old = """            Instances.createInstance(instance -> {
                 instance.name = "OptiFine";
                 instance.installer = instanceInstaller;
