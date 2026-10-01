@@ -52,7 +52,9 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                     File target = new File(Tools.CTRLDEF_FILE);
                     File parent = target.getParentFile();
                     if (parent != null && !parent.exists()) parent.mkdirs();
-                    new CustomControls(getContext()).save(target.getAbsolutePath());
+                    CustomControls generated = new CustomControls(getContext());
+                    generated.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+                    generated.save(target.getAbsolutePath());
                     CustomControls repaired = LayoutConverter.loadAndConvertIfNecessary(size, target.getAbsolutePath());
                     loadLayout(repaired);
                     updateLoadedFileName(target.getAbsolutePath());
@@ -63,7 +65,27 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                 Log.e("MikaelControls", "Failed to regenerate default control layout.", repairError);
             }
 
-            // For a corrupt custom layout, keep the game usable with an empty layout instead of crashing.
+            // For a corrupt custom layout, repair it by falling back to the default layout.
+            try {
+                File target = new File(Tools.CTRLDEF_FILE);
+                if (!target.isFile() || target.length() == 0) {
+                    File parent = target.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    CustomControls generated = new CustomControls(getContext());
+                    generated.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+                    generated.save(target.getAbsolutePath());
+                }
+                CustomControls repaired = LayoutConverter.loadAndConvertIfNecessary(size, target.getAbsolutePath());
+                LauncherPreferences.DEFAULT_PREF.edit().putString("defaultCtrl", target.getAbsolutePath()).apply();
+                LauncherPreferences.PREF_DEFAULTCTRL_PATH = target.getAbsolutePath();
+                loadLayout(repaired);
+                updateLoadedFileName(target.getAbsolutePath());
+                Log.w("MikaelControls", "Corrupt custom control layout replaced with default.", e);
+                return;
+            } catch (Throwable repairError) {
+                Log.e("MikaelControls", "Failed to recover corrupt control layout.", repairError);
+            }
+
             CustomControls customControls = new CustomControls();
             customControls.mLayoutBitmaps = LayoutBitmaps.createEmpty();
             loadLayout(customControls);
