@@ -382,6 +382,7 @@ public class MikaelHomeActivity extends BaseActivity {
         if (account == null) { showAccounts(); return; }
         Instance instance = ensureInstance();
         if (instance == null) { showError("Não foi possível preparar o perfil."); return; }
+        ensureSelectedResourcePackDirectory();
         applyInstanceRam(instance);
         String version = MoJsonExtras.normalizeVersionId(instance.versionId);
         if (!Tools.isValidString(version)) { showError("Nenhuma versão foi selecionada."); return; }
@@ -2040,10 +2041,25 @@ public class MikaelHomeActivity extends BaseActivity {
     private int memory(String value){String first=value.split(" ")[0];return value.contains("GB")?Integer.parseInt(first)*1024:Integer.parseInt(first);}
     private void chooseTheme(){new AlertDialog.Builder(this).setTitle("Tema").setItems(new String[]{"Automático","Escuro","Claro"},(d,w)->AppCompatDelegate.setDefaultNightMode(w==0?AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM:w==1?AppCompatDelegate.MODE_NIGHT_YES:AppCompatDelegate.MODE_NIGHT_NO)).show();}
 
+    private File getSelectedMinecraftDirectory() {
+        Instance instance = Instances.loadSelectedInstance();
+        return instance == null ? Instances.SHARED_DATA_DIRECTORY : instance.getGameDirectory();
+    }
+
+    private File ensureSelectedResourcePackDirectory() {
+        File resourcepacks = new File(getSelectedMinecraftDirectory(), "resourcepacks");
+        FileUtils.ensureDirectorySilently(resourcepacks);
+        return resourcepacks;
+    }
+
     private void showFiles() {
-        Instance i=Instances.loadSelectedInstance(); File root=i==null?Instances.SHARED_DATA_DIRECTORY:i.getGameDirectory();
-        File[] dirs={root,new File(root,"mods"),new File(root,"resourcepacks"),new File(root,"saves"),new File(root,"screenshots"),new File(root,"logs")};
-        new AlertDialog.Builder(this).setTitle("Arquivos").setItems(new String[]{"Minecraft","Mods","Resourcepacks","Saves","Screenshots","Logs"},(d,w)->openPath(dirs[w])).setPositiveButton("Fechar",null).show();
+        File root = getSelectedMinecraftDirectory();
+        File resourcepacks = ensureSelectedResourcePackDirectory();
+        File[] dirs={root,new File(root,"mods"),resourcepacks,new File(root,"saves"),new File(root,"screenshots"),new File(root,"logs")};
+        new AlertDialog.Builder(this)
+                .setTitle("Arquivos • Minecraft " + minecraftVersionForMods(Instances.loadSelectedInstance()))
+                .setItems(new String[]{"Minecraft","Mods","Resource Packs","Saves","Screenshots","Logs"},(d,w)->openPath(dirs[w]))
+                .setPositiveButton("Fechar",null).show();
     }
 
     private void openPath(File dir){try{FileUtils.ensureDirectorySilently(dir);Tools.openPath(this,dir,false);}catch(Throwable e){Toast.makeText(this,"Não foi possível abrir a pasta.",Toast.LENGTH_LONG).show();}}
