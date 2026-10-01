@@ -137,7 +137,7 @@ activity='''\n        <activity
 '''
 if 'net.kdt.pojavlaunch.MikaelHomeActivity' not in s:
     s=s.replace('</application>', activity+'    </application>', 1)
-s=s.replace('android:name="net.kdt.pojavlaunch.LauncherActivity"\n            android:label="@string/app_short_name"', 'android:name="net.kdt.pojavlaunch.LauncherActivity"\n            android:exported="false"\n            android:label="@string/app_short_name"', 1)
+s=s.replace('android:name="net.kdt.pojavlaunch.LauncherActivity"\n            android:label="@string/app_short_name"', 'android:name="net.kdt.pojavlaunch.LauncherActivity"\n            android:enabled="false"\n            android:exported="false"\n            android:label="@string/app_short_name"', 1)
 # Use only Mikael launcher branding for the installed application icon and label.
 s=s.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/ic_mikael_logo"', 1)
 s=s.replace('android:roundIcon="@mipmap/ic_launcher_round"', 'android:roundIcon="@drawable/ic_mikael_logo"', 1)
