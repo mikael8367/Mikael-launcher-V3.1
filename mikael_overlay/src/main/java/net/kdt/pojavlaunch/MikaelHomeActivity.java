@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class MikaelHomeActivity extends BaseActivity {
+    // APK build validation marker.
     private TextView accountName, accountType, selectedVersion, ramValue, javaStatus;
     private TextView storageStatus, installStatus, launcherStatus, loadStatus;
     private ProgressBar launchProgress;
