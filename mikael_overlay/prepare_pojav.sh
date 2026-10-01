@@ -850,6 +850,7 @@ p.write_text(s, encoding="utf-8")
 PY
 
 
+# CI deep-audit trigger: compile, lint and regression-check this generated OptiFine path.
 # Deep OptiFine hardening: validate metadata/URLs, avoid infinite waits and preserve
 # installer state when post-install metadata is not ready yet.
 python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OptiFineDownloadTask.java" \
