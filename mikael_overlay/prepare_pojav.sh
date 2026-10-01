@@ -36,6 +36,41 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                 'setTitle("MojoLauncher (" + version + ")");',
                 'setTitle("Mikael Launcher V3.1 (" + version + ")");'
             )
+    if p.name == "ControlLayout.java":
+            old_method = """public void loadLayout(String jsonPath) throws IOException, JsonSyntaxException {
+        CustomControls layout = LayoutConverter.loadAndConvertIfNecessary(jsonPath);
+        if(layout != null) {
+            loadLayout(layout);
+            updateLoadedFileName(jsonPath);
+            return;
+        }
+        throw new IOException("Unsupported control layout version");
+    }"""
+            new_method = """public void loadLayout(String jsonPath) throws IOException, JsonSyntaxException {
+        try {
+            File file = new File(jsonPath);
+            if (!file.isFile() || file.length() == 0) {
+                Toast.makeText(getContext(), "O arquivo de controles está vazio ou não existe.", Toast.LENGTH_LONG).show();
+                Log.e("MikaelControls", "Control layout is missing or empty: " + jsonPath);
+                return;
+            }
+            CustomControls layout = LayoutConverter.loadAndConvertIfNecessary(jsonPath);
+            if(layout != null) {
+                loadLayout(layout);
+                updateLoadedFileName(jsonPath);
+                return;
+            }
+            throw new IOException("Unsupported control layout version");
+        } catch (JsonSyntaxException | org.json.JSONException e) {
+            Toast.makeText(getContext(), "Esse arquivo de controles está corrompido ou em formato inválido.", Toast.LENGTH_LONG).show();
+            Log.e("MikaelControls", "Invalid control layout: " + jsonPath, e);
+        } catch (IOException e) {
+            Toast.makeText(getContext(), "Não foi possível abrir esse arquivo de controles.", Toast.LENGTH_LONG).show();
+            Log.e("MikaelControls", "Could not load control layout: " + jsonPath, e);
+        }
+    }"""
+            if old_method in updated:
+                updated = updated.replace(old_method, new_method)
         if updated != text:
             p.write_text(updated, encoding="utf-8")
 PY
