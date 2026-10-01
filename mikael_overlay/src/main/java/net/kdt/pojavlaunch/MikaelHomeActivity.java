@@ -224,7 +224,17 @@ public class MikaelHomeActivity extends BaseActivity {
         try {
             if (!Tools.isValidString(Tools.CTRLDEF_FILE)) return;
             File target = new File(Tools.CTRLDEF_FILE);
-            if (target.isFile() && target.length() > 0) return;
+            if (target.isFile() && target.length() > 0) {
+                try {
+                    net.kdt.pojavlaunch.customcontrols.LayoutConverter
+                            .loadAndConvertIfNecessary(new android.graphics.Point(1, 1), target.getAbsolutePath());
+                    return;
+                } catch (Throwable invalidLayout) {
+                    android.util.Log.w("MikaelControls",
+                            "O controle padrão existente está inválido; ele será regenerado.",
+                            invalidLayout);
+                }
+            }
 
             File parent = target.getParentFile();
             if (parent != null && !parent.exists() && !parent.mkdirs()) {
