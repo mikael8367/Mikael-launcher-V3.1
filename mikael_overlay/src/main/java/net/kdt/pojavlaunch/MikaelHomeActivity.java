@@ -15,6 +15,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -789,8 +790,6 @@ public class MikaelHomeActivity extends BaseActivity {
     private void installCurseForgePack(CurseforgeApi api, ModDetail detail, int selectedVersion) {
         saveAllSettingsNow();
         setLoading(12, "Instalando " + detail.title + "...");
-        net.kdt.pojavlaunch.progresskeeper.ProgressLayout.setProgress(
-                net.kdt.pojavlaunch.progresskeeper.ProgressLayout.INSTALL_MODPACK, 0, 0);
         net.kdt.pojavlaunch.PojavApplication.sExecutorService.execute(() -> {
             try {
                 api.installModpack(detail, selectedVersion);
