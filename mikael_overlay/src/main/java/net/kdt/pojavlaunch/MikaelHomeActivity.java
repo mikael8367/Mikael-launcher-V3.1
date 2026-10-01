@@ -350,16 +350,66 @@ public class MikaelHomeActivity extends BaseActivity {
                 }
             }
             if (selected == null) {
-                runOnUiThread(() -> showError("A versão " + version + " não está disponível no manifesto baixado."));
+                // A version can already have a local JSON even when the remote manifest
+                // no longer lists it. Reuse that metadata instead of blocking installation.
+                File localJson = MoJsonDownloader.createGameJsonPath(version);
+                if (localJson.isFile()) {
+                    try {
+                        selected = net.kdt.pojavlaunch.utils.JSONUtils.readFromFile(
+                                localJson, JVersionList.Version.class);
+                    } catch (Throwable ignored) {}
+                }
+            }
+            if (selected == null) {
+                runOnUiThread(() -> showError("Não foi possível encontrar os metadados da versão " + version + ". Atualize a lista de versões e tente novamente."));
                 return;
             }
+            JVersionList.Version finalSelected = selected;
             runOnUiThread(() -> setLoading(6, "Preparando Minecraft " + version + "..."));
             try {
-                new MoJsonDownloader().start(getAssets(), selected, version, new ContextAwareDoneListener(this, version));
+                new MoJsonDownloader().start(getAssets(), finalSelected, version, new MikaelGameLaunchListener(this, version));
             } catch (Throwable error) {
-                runOnUiThread(() -> showError("Falha ao preparar a versão: " + safe(error)));
+                runOnUiThread(() -> showError("Falha ao preparar a versão " + version + ": " + safe(error)));
             }
         });
+    }
+
+    private static final class MikaelGameLaunchListener implements MoJsonExtras.DoneListener {
+        private final MikaelHomeActivity activity;
+        private final String version;
+        private File[] classpath;
+
+        MikaelGameLaunchListener(MikaelHomeActivity activity, String version) {
+            this.activity = activity;
+            this.version = version;
+        }
+
+        @Override public void onDownloadDone(File[] classpath) {
+            this.classpath = classpath;
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && activity.isDestroyed())) return;
+                try {
+                    android.content.Intent intent = new android.content.Intent(
+                            activity, net.kdt.pojavlaunch.game.GameActivity.class);
+                    intent.putExtra(net.kdt.pojavlaunch.game.GameActivity.INTENT_LAUNCH_VERSION, version);
+                    intent.putExtra(net.kdt.pojavlaunch.game.GameActivity.INTENT_LAUNCH_CLASSPATH, classpath);
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    activity.startActivity(intent);
+                    // Keep Mikael Launcher alive in the background instead of finishing
+                    // or killing its process like the upstream listener does.
+                    activity.moveTaskToBack(true);
+                } catch (Throwable error) {
+                    activity.showError("Não foi possível iniciar Minecraft " + version + ": " + activity.safe(error));
+                }
+            });
+        }
+
+        @Override public void onDownloadFailed(Throwable throwable) {
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing() || (android.os.Build.VERSION.SDK_INT >= 17 && activity.isDestroyed())) return;
+                activity.showError("Falha ao instalar/preparar Minecraft " + version + ": " + activity.safe(throwable));
+            });
+        }
     }
 
     private Instance ensureInstance() {
