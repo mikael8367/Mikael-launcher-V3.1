@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.StatFs;
+import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -69,6 +70,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+
+import org.json.JSONObject;
 
 public class MikaelHomeActivity extends BaseActivity {
     // APK build validation marker.
@@ -422,6 +425,11 @@ public class MikaelHomeActivity extends BaseActivity {
         applyInstanceRam(instance);
         String version = MoJsonExtras.normalizeVersionId(instance.versionId);
         if (!Tools.isValidString(version)) { showError("Nenhuma versão foi selecionada."); return; }
+
+        if (isDirectElyAccount(account)) {
+            refreshDirectElyIfNeeded(account, instance, version);
+            return;
+        }
 
         if (account.authType.requiresLogin() && account.expiresAt > 0 && account.expiresAt <= System.currentTimeMillis()) {
             setLoading(0, "Atualizando sessão...");
@@ -1298,7 +1306,7 @@ public class MikaelHomeActivity extends BaseActivity {
     private void addAccount() {
         new AlertDialog.Builder(this).setTitle("Adicionar conta").setItems(new String[]{"Microsoft","Ely.by","Offline"}, (d,w) -> {
             if (w == 0) startOAuth(AuthType.MICROSOFT);
-            else if (w == 1) startOAuth(AuthType.ELY_BY);
+            else if (w == 1) showElyByLoginDialog();
             else offlineDialog();
         }).show();
     }
@@ -1319,6 +1327,305 @@ public class MikaelHomeActivity extends BaseActivity {
             });
             Accounts.setCurrent(account); refreshDashboard();
         } catch (IOException e) { showError("Falha ao criar conta offline."); }
+    }
+
+    private static final class ElyAuthResponse {
+        String accessToken;
+        String clientToken;
+        ElyProfile selectedProfile;
+        String error;
+        String errorMessage;
+    }
+
+    private static final class ElyProfile {
+        String id;
+        String name;
+    }
+
+    private static final class ElyTwoFactorRequired extends IOException {
+        ElyTwoFactorRequired() { super("A conta Ely.by exige código de autenticação em dois fatores."); }
+    }
+
+    private String getElyClientToken() {
+        if (prefs == null) return UUID.randomUUID().toString();
+        String token = prefs.getString("ely_client_token", null);
+        if (!Tools.isValidString(token)) {
+            token = UUID.randomUUID().toString();
+            prefs.edit().putString("ely_client_token", token).commit();
+        }
+        return token;
+    }
+
+    private void showElyByLoginDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(36, 18, 36, 8);
+
+        EditText username = new EditText(this);
+        username.setHint("Nome de usuário ou e-mail");
+        username.setSingleLine(true);
+        box.addView(username, new LinearLayout.LayoutParams(-1, -2));
+
+        EditText password = new EditText(this);
+        password.setHint("Senha");
+        password.setSingleLine(true);
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        LinearLayout.LayoutParams passwordLp = new LinearLayout.LayoutParams(-1, -2);
+        passwordLp.topMargin = 12;
+        box.addView(password, passwordLp);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Entrar com Ely.by")
+                .setMessage("Use seu nome de usuário/e-mail e senha do Ely.by. A senha não é salva no launcher.")
+                .setView(box)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Entrar", null)
+                .create();
+        authDialog = dialog;
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String login = username.getText().toString().trim();
+                String pass = password.getText().toString();
+                if (login.isEmpty()) {
+                    username.setError("Digite seu nome de usuário ou e-mail.");
+                    username.requestFocus();
+                    return;
+                }
+                if (pass.isEmpty()) {
+                    password.setError("Digite sua senha.");
+                    password.requestFocus();
+                    return;
+                }
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.hideSoftInputFromWindow(password.getWindowToken(), 0);
+                v.setEnabled(false);
+                v.setText("Entrando...");
+                authenticateElyBy(login, pass, null, dialog, username, password);
+            });
+            username.requestFocus();
+            dialog.getWindow();
+        });
+        dialog.setOnDismissListener(d -> { if (authDialog == dialog) authDialog = null; });
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
+    }
+
+    private void authenticateElyBy(String username, String password, String twoFactor,
+                                   AlertDialog dialog, EditText usernameField, EditText passwordField) {
+        final String submittedPassword = twoFactor == null ? password : password + ":" + twoFactor;
+        new Thread(() -> {
+            try {
+                String clientToken = getElyClientToken();
+                JSONObject body = new JSONObject();
+                body.put("username", username);
+                body.put("password", submittedPassword);
+                body.put("clientToken", clientToken);
+                body.put("requestUser", true);
+
+                ElyAuthResponse response = postElyAuth("/auth/authenticate", body.toString());
+                if (!Tools.isValidString(response.accessToken)
+                        || response.selectedProfile == null
+                        || !Tools.isValidString(response.selectedProfile.id)
+                        || !Tools.isValidString(response.selectedProfile.name)) {
+                    throw new IOException("Resposta de autenticação incompleta.");
+                }
+
+                response.clientToken = Tools.isValidString(response.clientToken) ? response.clientToken : clientToken;
+                completeElyByLogin(response);
+                runOnUiThread(() -> {
+                    if (dialog != null && dialog.isShowing()) dialog.dismiss();
+                    Toast.makeText(this, "Login Ely.by concluído.", Toast.LENGTH_SHORT).show();
+                });
+            } catch (ElyTwoFactorRequired twoFactorRequired) {
+                runOnUiThread(() -> showElyTwoFactorDialog(
+                        username, password, dialog, usernameField, passwordField));
+            } catch (Throwable error) {
+                runOnUiThread(() -> {
+                    if (dialog != null && dialog.isShowing()) {
+                        android.widget.Button button = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                        if (button != null) {
+                            button.setEnabled(true);
+                            button.setText("Entrar");
+                        }
+                    }
+                    showError("Falha no login Ely.by: " + safe(error));
+                });
+            }
+        }).start();
+    }
+
+    private void showElyTwoFactorDialog(String username, String password, AlertDialog parent,
+                                        EditText usernameField, EditText passwordField) {
+        EditText code = new EditText(this);
+        code.setHint("Código de 6 dígitos");
+        code.setSingleLine(true);
+        code.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Verificação em dois fatores")
+                .setMessage("Sua conta Ely.by exige o código atual do autenticador.")
+                .setView(code)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Confirmar", null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String value = code.getText().toString().trim();
+                if (!value.matches("\\d{6}")) {
+                    code.setError("Digite o código de 6 dígitos.");
+                    return;
+                }
+                v.setEnabled(false);
+                v.setText("Verificando...");
+                authenticateElyBy(username, password, value, dialog, usernameField, passwordField);
+            });
+            code.requestFocus();
+        });
+        dialog.setOnDismissListener(d -> {
+            if (parent != null && parent.isShowing()) {
+                android.widget.Button button = parent.getButton(AlertDialog.BUTTON_POSITIVE);
+                if (button != null) {
+                    button.setEnabled(true);
+                    button.setText("Entrar");
+                }
+            }
+        });
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+    }
+
+    private ElyAuthResponse postElyAuth(String endpoint, String jsonBody) throws IOException, ElyTwoFactorRequired {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL("https://authserver.ely.by" + endpoint);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+            connection.setUseCaches(false);
+            connection.setDoInput(true);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            byte[] payload = jsonBody.getBytes(StandardCharsets.UTF_8);
+            connection.setFixedLengthStreamingMode(payload.length);
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(payload);
+            }
+
+            int code = connection.getResponseCode();
+            InputStream stream = code >= 200 && code < 300
+                    ? connection.getInputStream() : connection.getErrorStream();
+            String responseText = "";
+            if (stream != null) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) response.append(line);
+                    responseText = response.toString();
+                }
+            }
+
+            ElyAuthResponse response = new ElyAuthResponse();
+            if (!responseText.isEmpty()) {
+                try {
+                    response = Tools.GLOBAL_GSON.fromJson(responseText, ElyAuthResponse.class);
+                } catch (Throwable ignored) {
+                    if (code < 200 || code >= 300) throw new IOException("Resposta inválida do servidor Ely.by.");
+                }
+            }
+
+            if (code >= 200 && code < 300) return response;
+            String message = response == null ? null : response.errorMessage;
+            if (code == 401 && message != null
+                    && message.toLowerCase(java.util.Locale.ROOT).contains("two factor")) {
+                throw new ElyTwoFactorRequired();
+            }
+            if (message == null || message.trim().isEmpty()) message = "Servidor Ely.by respondeu HTTP " + code + ".";
+            throw new IOException(message);
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private void completeElyByLogin(ElyAuthResponse response) throws IOException {
+        final long expiry = parseElyJwtExpiry(response.accessToken);
+        Account account = Accounts.create(a -> {
+            a.authType = AuthType.ELY_BY;
+            a.accessToken = response.accessToken;
+            a.refreshToken = "0";
+            a.username = response.selectedProfile.name;
+            a.profileId = response.selectedProfile.id;
+            a.xuid = null;
+            a.expiresAt = expiry > 0 ? expiry : System.currentTimeMillis() + 3600000L;
+        });
+        String profileKey = "ely_client_token_" + response.selectedProfile.id;
+        prefs.edit()
+                .putString("ely_client_token", response.clientToken)
+                .putString(profileKey, response.clientToken)
+                .putBoolean("ely_direct_" + response.selectedProfile.id, true)
+                .commit();
+        Accounts.setCurrent(account);
+        try { account.updateSkinFace(); } catch (Throwable ignored) {}
+    }
+
+    private long parseElyJwtExpiry(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return 0;
+            byte[] data = Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
+            long seconds = new JSONObject(new String(data, StandardCharsets.UTF_8)).optLong("exp", 0);
+            return seconds > 0 ? seconds * 1000L : 0;
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private boolean isDirectElyAccount(Account account) {
+        return account != null
+                && account.authType == AuthType.ELY_BY
+                && prefs != null
+                && prefs.getBoolean("ely_direct_" + account.profileId, false);
+    }
+
+    private void refreshDirectElyIfNeeded(Account account, Instance instance, String version) {
+        if (!isDirectElyAccount(account)
+                || (account.expiresAt > 0 && account.expiresAt > System.currentTimeMillis())) {
+            launchAfterVersionList(instance, version);
+            return;
+        }
+
+        String clientToken = prefs.getString("ely_client_token_" + account.profileId, null);
+        if (!Tools.isValidString(clientToken)) clientToken = prefs.getString("ely_client_token", null);
+        if (!Tools.isValidString(clientToken)) {
+            showError("A sessão Ely.by precisa ser autenticada novamente.");
+            return;
+        }
+
+        final String finalClientToken = clientToken;
+        setLoading(0, "Atualizando sessão Ely.by...");
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("accessToken", account.accessToken);
+                body.put("clientToken", finalClientToken);
+                body.put("requestUser", true);
+                ElyAuthResponse response = postElyAuth("/auth/refresh", body.toString());
+                if (!Tools.isValidString(response.accessToken)) throw new IOException("Resposta de renovação incompleta.");
+                account.accessToken = response.accessToken;
+                account.expiresAt = parseElyJwtExpiry(response.accessToken);
+                if (account.expiresAt <= System.currentTimeMillis()) account.expiresAt = System.currentTimeMillis() + 3600000L;
+                account.save();
+                Accounts.setCurrent(account);
+                runOnUiThread(() -> launchAfterVersionList(instance, version));
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Sessão Ely.by expirada. Entre novamente: " + safe(error)));
+            }
+        }).start();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
