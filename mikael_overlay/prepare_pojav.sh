@@ -353,7 +353,7 @@ methods='''    private void setupMikaelPerformanceOverlay() {
         if (enabled) {
             CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_F3);
         } else {
-            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F3);
+            CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_F3);
         }
     }
 
