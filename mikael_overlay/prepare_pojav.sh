@@ -231,7 +231,7 @@ accounts.write_text(s,encoding='utf-8')
 PY
 
 
-# Add Mikael performance quick settings: Minecraft's own F3 debug FPS and a live JVM RAM overlay.
+# Add Mikael performance quick settings: launcher-side FPS GUI and a live JVM RAM overlay.
 python3 - "$POJAV/src/main/res/layout/dialog_quick_setting.xml" <<'PY'
 import sys
 from pathlib import Path
@@ -242,7 +242,7 @@ insert='''    <!-- Mikael performance settings -->
         android:id="@+id/mikael_show_fps"
         android:layout_width="match_parent"
         android:layout_height="@dimen/_36sdp"
-        android:text="📊 Mostrar FPS do Minecraft (F3)"
+        android:text="📊 Mostrar FPS do Launcher"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/editGestureDelay_seekbar"
         tools:ignore="UseSwitchCompatOrMaterialXml" />
@@ -413,7 +413,7 @@ methods='''    private void setupMikaelPerformanceOverlay() {
         }
     }
 
-    private void setMikaelMinecraftFpsEnabled(boolean enabled) {
+    private void setMikaelFpsEnabled(boolean enabled) {
         mMikaelFpsEnabled = enabled;
         if (mMikaelFpsOverlay == null) return;
         if (enabled) {
@@ -439,7 +439,7 @@ needle='''                public void onButtonTransparencyChanged() {
 '''
 repl=needle+'''                @Override
                 public void onMikaelFpsChanged(boolean enabled) {
-                    setMikaelMinecraftFpsEnabled(enabled);
+                    setMikaelFpsEnabled(enabled);
                 }
 
                 @Override
