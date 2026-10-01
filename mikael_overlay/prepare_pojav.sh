@@ -698,6 +698,91 @@ s=s.replace('''    protected void onDestroy() {
 p.write_text(s,encoding="utf-8")
 PY
 
+# Harden real modloader screens against activity teardown, parser failures and runtime exceptions.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/fragments/ModVersionListFragment.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/fragments/ForgelikeInstallFragment.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/fragments/FabriclikeInstallFragment.java" "$POJAV/src/main/java/net/kdt/pojavlaunch/fragments/OptiFineInstallFragment.java" <<'PY'
+from pathlib import Path
+import sys
+
+modlist, forge, fabric, optifine = map(Path, sys.argv[1:])
+
+p = modlist
+s = p.read_text(encoding="utf-8")
+s = s.replace("        }catch (IOException e) {", "        }catch (Throwable e) {", 1)
+s = s.replace(
+"""        Tools.runOnUiThread(()->{
+            Context context = requireContext();
+            getTaskProxy().detachListener();
+            setTaskProxy(null);
+            mExpandableListView.setEnabled(true);
+            Tools.showError(context, e);
+        });""",
+"""        Tools.runOnUiThread(()->{
+            Context context = getContext();
+            ModloaderListenerProxy proxy = getTaskProxy();
+            if(proxy != null) {
+                proxy.detachListener();
+                setTaskProxy(null);
+            }
+            if(mExpandableListView != null) mExpandableListView.setEnabled(true);
+            if(context != null) Tools.showError(context, e);
+        });""", 1)
+s = s.replace(
+"""    public void onDownloadFinished(File downloadedFile) {
+        Tools.runOnUiThread(()->{
+            Context context = requireContext();""",
+"""    public void onDownloadFinished(File downloadedFile) {
+        Tools.runOnUiThread(()->{
+            Context context = getContext();
+            if(context == null || mExpandableListView == null) return;""", 1)
+s = s.replace(
+"""    public void onDataNotAvailable() {
+        Tools.runOnUiThread(()->{
+            Context context = requireContext();""",
+"""    public void onDataNotAvailable() {
+        Tools.runOnUiThread(()->{
+            Context context = getContext();
+            if(context == null || mExpandableListView == null) return;""", 1)
+p.write_text(s, encoding="utf-8")
+
+p = forge
+s = p.read_text(encoding="utf-8")
+s = s.replace("        }catch (IOException e) {", "        }catch (Throwable e) {", 1)
+s = s.replace(
+"""            listenerProxy.onDownloadError(e);
+        }
+    }""",
+"""            listenerProxy.onDownloadError(e instanceof Exception ? (Exception)e : new Exception(e));
+        }
+    }""", 1)
+p.write_text(s, encoding="utf-8")
+
+p = fabric
+s = p.read_text(encoding="utf-8")
+s = s.replace(
+"""        }catch (IOException e) {
+            Tools.showErrorRemote(e);
+        }
+    }""",
+"""        }catch (Throwable e) {
+            ModloaderListenerProxy proxy = getListenerProxy();
+            if(proxy != null) proxy.onDownloadError(e instanceof Exception ? (Exception)e : new Exception(e));
+        }
+    }""", 1)
+p.write_text(s, encoding="utf-8")
+
+p = optifine
+s = p.read_text(encoding="utf-8")
+s = s.replace("        }catch (Exception e) {", "        }catch (Throwable e) {", 1)
+s = s.replace(
+"""            listenerProxy.onDownloadError(e);
+        }
+    }""",
+"""            listenerProxy.onDownloadError(e instanceof Exception ? (Exception)e : new Exception(e));
+        }
+    }""", 1)
+p.write_text(s, encoding="utf-8")
+PY
+
 # Never send installer notifications back to the legacy Pojav/Mojo launcher.
 python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/instances/InstanceInstaller.java" <<'PY'
 from pathlib import Path
