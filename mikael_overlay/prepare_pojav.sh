@@ -502,7 +502,7 @@ s=s.replace('private QuickSettingSideDialog mQuickSettingSideDialog;',
             mMikaelFpsFrames = 0;
             mMikaelFpsWindowStart = now;
         }
-        android.view.Choreographer.getInstance().postFrameCallback(this);
+        android.view.Choreographer.getInstance().postFrameCallback(mMikaelFpsCallback);
     };
     private final Runnable mMikaelRamUpdater = new Runnable() {
         @Override public void run() {
