@@ -676,6 +676,13 @@ public class MikaelHomeActivity extends BaseActivity {
                 return;
             }
 
+            // Real modloader installers (especially OptiFine) resolve the base
+            // Minecraft metadata through MoJsonExtras.RELEASE_TABLE.
+            // Keep the freshly downloaded manifest available before opening
+            // any installer fragment.
+            net.kdt.pojavlaunch.extra.ExtraCore.setValue(
+                    net.kdt.pojavlaunch.extra.ExtraConstants.RELEASE_TABLE, list);
+
             String[] categories = {"⭐ Todas", "✅ Release", "🧪 Snapshot", "🔬 Beta / antigas", "🧩 Modloaders"};
             new AlertDialog.Builder(this)
                     .setTitle("📦 Todas as versões")
