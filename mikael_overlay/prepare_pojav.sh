@@ -187,8 +187,16 @@ s = s.replace(
     }""",
 """    private static boolean isSaneData(ControlData controlData) {
         if(controlData == null) return false;
-        if(controlData.getWidth() == 0 || controlData.getHeight() == 0) return false;
-        return isValidFormula(controlData.dynamicX) && isValidFormula(controlData.dynamicY);
+        if(controlData.getWidth() <= 0 || controlData.getHeight() <= 0) return false;
+        if(controlData.keycodes == null) return false;
+        if(!isValidFormula(controlData.dynamicX) || !isValidFormula(controlData.dynamicY)) return false;
+        try {
+            controlData.insertDynamicPos(controlData.dynamicX, 1920, 1080);
+            controlData.insertDynamicPos(controlData.dynamicY, 1920, 1080);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }""", 1)
 s = s.replace(
 """    private static boolean checkEntry(Object entry) {
