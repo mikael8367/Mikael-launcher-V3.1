@@ -196,4 +196,175 @@ if n != 1: raise SystemExit('Accounts.loadAccount anchor not found')
 accounts.write_text(s,encoding='utf-8')
 PY
 
+
+# Add Mikael performance quick settings: Minecraft's own F3 debug FPS and a live JVM RAM overlay.
+python3 - "$POJAV/src/main/res/layout/dialog_quick_setting.xml" <<'PY'
+import sys
+from pathlib import Path
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+anchor='    <!-- button transparency seekbar -->'
+insert='''    <!-- Mikael performance settings -->
+    <Switch
+        android:id="@+id/mikael_show_fps"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/_36sdp"
+        android:text="📊 Mostrar FPS do Minecraft (F3)"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/editGestureDelay_seekbar"
+        tools:ignore="UseSwitchCompatOrMaterialXml" />
+
+    <Switch
+        android:id="@+id/mikael_show_ram"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/_36sdp"
+        android:text="🧠 Mostrar RAM"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/mikael_show_fps"
+        tools:ignore="UseSwitchCompatOrMaterialXml" />
+
+'''
+if anchor not in s: raise SystemExit("layout anchor not found")
+s=s.replace(anchor,insert+anchor,1)
+p.write_text(s,encoding="utf-8")
+PY
+
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/prefs/QuickSettingSideDialog.java" <<'PY'
+import sys
+from pathlib import Path
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+s=s.replace('private Switch mGyroSwitch, mGyroXSwitch, mGyroYSwitch, mGestureSwitch;',
+            'private Switch mGyroSwitch, mGyroXSwitch, mGyroYSwitch, mGestureSwitch, mMikaelFpsSwitch, mMikaelRamSwitch;')
+s=s.replace('private boolean mOriginalGyroEnabled, mOriginalGyroXEnabled, mOriginalGyroYEnabled, mOriginalGestureDisabled;',
+            'private boolean mOriginalGyroEnabled, mOriginalGyroXEnabled, mOriginalGyroYEnabled, mOriginalGestureDisabled, mOriginalMikaelFps, mOriginalMikaelRam;')
+s=s.replace('mGestureSwitch = mDialogContent.findViewById(R.id.checkboxGesture);',
+            'mGestureSwitch = mDialogContent.findViewById(R.id.checkboxGesture);\\n        mMikaelFpsSwitch = mDialogContent.findViewById(R.id.mikael_show_fps);\\n        mMikaelRamSwitch = mDialogContent.findViewById(R.id.mikael_show_ram);')
+s=s.replace('mOriginalGestureDisabled = PREF_DISABLE_GESTURES;',
+            'mOriginalGestureDisabled = PREF_DISABLE_GESTURES;\\n        mOriginalMikaelFps = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_fps", false);\\n        mOriginalMikaelRam = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_ram", false);')
+s=s.replace('mGestureSwitch.setChecked(mOriginalGestureDisabled);',
+            'mGestureSwitch.setChecked(mOriginalGestureDisabled);\\n        mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\\n        mMikaelRamSwitch.setChecked(mOriginalMikaelRam);')
+anchor='        mGestureSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {'
+idx=s.index(anchor)
+# Insert the two listeners immediately before gesture listener.
+listeners='''        mMikaelFpsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            mEditor.putBoolean("mikael_show_fps", isChecked);
+            onMikaelFpsChanged(isChecked);
+        });
+
+        mMikaelRamSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            mEditor.putBoolean("mikael_show_ram", isChecked);
+            onMikaelRamChanged(isChecked);
+        });
+
+'''
+s=s[:idx]+listeners+s[idx:]
+s=s.replace('mGestureSwitch.setOnCheckedChangeListener(null);',
+            'mGestureSwitch.setOnCheckedChangeListener(null);\\n        mMikaelFpsSwitch.setOnCheckedChangeListener(null);\\n        mMikaelRamSwitch.setOnCheckedChangeListener(null);')
+s=s.replace('PREF_DISABLE_GESTURES = mOriginalGestureDisabled;',
+            'PREF_DISABLE_GESTURES = mOriginalGestureDisabled;\\n            mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\\n            mMikaelRamSwitch.setChecked(mOriginalMikaelRam);\\n            onMikaelFpsChanged(mOriginalMikaelFps);\\n            onMikaelRamChanged(mOriginalMikaelRam);')
+anchor2='    /**\\n     * Called when the resolution is changed.'
+methods='''    /** Called when the Mikael FPS toggle changes. */
+    public void onMikaelFpsChanged(boolean enabled) {}
+
+    /** Called when the Mikael RAM toggle changes. */
+    public void onMikaelRamChanged(boolean enabled) {}
+
+'''
+s=s.replace(anchor2,methods+anchor2,1)
+p.write_text(s,encoding="utf-8")
+PY
+
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/game/GameActivity.java" <<'PY'
+import sys
+from pathlib import Path
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+# fields
+s=s.replace('private QuickSettingSideDialog mQuickSettingSideDialog;',
+'''private QuickSettingSideDialog mQuickSettingSideDialog;
+    private TextView mMikaelRamOverlay;
+    private final Runnable mMikaelRamUpdater = new Runnable() {
+        @Override public void run() {
+            if (mMikaelRamOverlay == null) return;
+            long used = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+            long max = Runtime.getRuntime().maxMemory();
+            mMikaelRamOverlay.setText(String.format(java.util.Locale.US, "RAM: %.0f / %.0f MB",
+                    used / 1048576f, max / 1048576f));
+            Tools.MAIN_HANDLER.postDelayed(this, 500);
+        }
+    };''')
+# setup overlay after initLayout
+s=s.replace('        initLayout(R.layout.activity_basemain);',
+'''        initLayout(R.layout.activity_basemain);
+        setupMikaelPerformanceOverlay();''',1)
+# Add helper methods before openQuickSettings
+anchor='    private void openQuickSettings() {'
+methods='''    private void setupMikaelPerformanceOverlay() {
+        ViewGroup content = findViewById(R.id.content_frame);
+        if (content == null) return;
+        mMikaelRamOverlay = new TextView(this);
+        mMikaelRamOverlay.setTextColor(Color.WHITE);
+        mMikaelRamOverlay.setTextSize(13f);
+        mMikaelRamOverlay.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        mMikaelRamOverlay.setBackgroundColor(0x99000000);
+        mMikaelRamOverlay.setPadding(12, 6, 12, 6);
+        mMikaelRamOverlay.setVisibility(View.GONE);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+        lp.setMargins(12, 12, 0, 0);
+        content.addView(mMikaelRamOverlay, lp);
+    }
+
+    private void setMikaelRamOverlayEnabled(boolean enabled) {
+        if (mMikaelRamOverlay == null) return;
+        if (enabled) {
+            mMikaelRamOverlay.setVisibility(View.VISIBLE);
+            mMikaelRamUpdater.run();
+        } else {
+            mMikaelRamOverlay.setVisibility(View.GONE);
+            Tools.MAIN_HANDLER.removeCallbacks(mMikaelRamUpdater);
+        }
+    }
+
+    private void setMikaelMinecraftFpsEnabled(boolean enabled) {
+        // Minecraft itself owns the FPS counter. F3 is the vanilla debug overlay,
+        // so the value shown comes from Minecraft rather than an Android-side estimate.
+        if (enabled) {
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F3);
+        } else {
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F3);
+        }
+    }
+
+'''
+if anchor not in s: raise SystemExit("quick settings anchor missing")
+s=s.replace(anchor,methods+anchor,1)
+# callbacks in anonymous dialog after button transparency callback
+needle='''                public void onButtonTransparencyChanged() {
+                    mControlLayout.updateButtonOpacity();
+                }
+'''
+repl=needle+'''                @Override
+                public void onMikaelFpsChanged(boolean enabled) {
+                    setMikaelMinecraftFpsEnabled(enabled);
+                }
+
+                @Override
+                public void onMikaelRamChanged(boolean enabled) {
+                    setMikaelRamOverlayEnabled(enabled);
+                }
+'''
+if needle not in s: raise SystemExit("callback anchor missing")
+s=s.replace(needle,repl,1)
+# destroy cleanup
+s=s.replace('''    protected void onDestroy() {
+        super.onDestroy();
+        ContextExecutor.clearActivity();
+    }''','''    protected void onDestroy() {
+        Tools.MAIN_HANDLER.removeCallbacks(mMikaelRamUpdater);
+        super.onDestroy();
+        ContextExecutor.clearActivity();
+    }''',1)
+p.write_text(s,encoding="utf-8")
+PY
+
 echo "Mikael overlay prepared successfully."
