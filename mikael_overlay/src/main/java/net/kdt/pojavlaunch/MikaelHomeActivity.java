@@ -136,6 +136,7 @@ public class MikaelHomeActivity extends BaseActivity {
         super.onCreate(state);
         prefs = getSharedPreferences("mikael_launcher", MODE_PRIVATE);
         try { MoJsonDownloader.prepareSubstitutionMap(getAssets()); } catch (Throwable ignored) {}
+        ensureDefaultControlLayout();
         setContentView(R.layout.activity_mikael_launcher);
         setupPojavFragmentHost();
         accountName = findViewById(R.id.account_name);
@@ -168,6 +169,54 @@ public class MikaelHomeActivity extends BaseActivity {
             openFirstRunOptiFine();
         } else if (state == null && prefs.getBoolean("auto_start", false)) {
             getWindow().getDecorView().postDelayed(this::playGame, 350);
+        }
+    }
+
+    /**
+     * Pojav's GameActivity expects the default touch-control layout to exist
+     * in the app storage. MikaelHomeActivity replaces the upstream launcher
+     * startup path, so create that file explicitly from the bundled asset.
+     */
+    private void ensureDefaultControlLayout() {
+        try {
+            if (!Tools.isValidString(Tools.CTRLDEF_FILE)) return;
+            File target = new File(Tools.CTRLDEF_FILE);
+            if (target.isFile() && target.length() > 0) return;
+
+            File parent = target.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                throw new IOException("Não foi possível criar a pasta de controles.");
+            }
+
+            File temp = new File(parent == null ? getCacheDir() : parent,
+                    "default.json.mikael.tmp");
+            try (InputStream in = getAssets().open("default.json");
+                 OutputStream out = new java.io.FileOutputStream(temp)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                }
+                out.flush();
+            }
+
+            if (!temp.renameTo(target)) {
+                try (InputStream in = new java.io.FileInputStream(temp);
+                     OutputStream out = new java.io.FileOutputStream(target)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                    out.flush();
+                }
+                if (!temp.delete()) {
+                    // Best effort cleanup only.
+                }
+            }
+        } catch (Throwable error) {
+            android.util.Log.e("MikaelControls",
+                    "Não foi possível preparar o controle padrão.", error);
         }
     }
 
