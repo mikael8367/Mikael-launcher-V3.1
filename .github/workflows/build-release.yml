@@ -2,6 +2,10 @@ name: Build Mikael Launcher V3.1 APK
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "mikael_overlay/**"
+      - ".github/workflows/build-release.yml"
 
 permissions:
   contents: read
