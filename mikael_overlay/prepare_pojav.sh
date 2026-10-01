@@ -37,6 +37,40 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                 'setTitle("Mikael Launcher V3.1 (" + version + ")");'
             )
         if p.name == "ControlLayout.java":
+            old_catch = """        }catch (IOException | JsonSyntaxException e) {
+            // Load an empty layout on exception to avoid breakage when adding buttons in the editor
+            CustomControls customControls = new CustomControls();
+            customControls.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+            loadLayout(customControls);
+            throw e;
+        }"""
+            new_catch = """        }catch (IOException | JsonSyntaxException e) {
+            // Never crash the game because the default/custom control JSON is empty or corrupt.
+            // The default layout can be regenerated from Pojav's built-in control definition.
+            try {
+                if (Tools.CTRLDEF_FILE.equals(jsonPath)) {
+                    File target = new File(Tools.CTRLDEF_FILE);
+                    File parent = target.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    new CustomControls(getContext()).save(target.getAbsolutePath());
+                    CustomControls repaired = LayoutConverter.loadAndConvertIfNecessary(size, target.getAbsolutePath());
+                    loadLayout(repaired);
+                    updateLoadedFileName(target.getAbsolutePath());
+                    Log.w("MikaelControls", "Default control layout was corrupt and has been regenerated.", e);
+                    return;
+                }
+            } catch (Throwable repairError) {
+                Log.e("MikaelControls", "Failed to regenerate default control layout.", repairError);
+            }
+
+            // For a corrupt custom layout, keep the game usable with an empty layout instead of crashing.
+            CustomControls customControls = new CustomControls();
+            customControls.mLayoutBitmaps = LayoutBitmaps.createEmpty();
+            loadLayout(customControls);
+            Log.e("MikaelControls", "Control layout was invalid: " + jsonPath, e);
+        }"""
+            if old_catch in updated:
+                updated = updated.replace(old_catch, new_catch, 1)
             old_method = """public void loadLayout(String jsonPath) throws IOException, JsonSyntaxException {
         CustomControls layout = LayoutConverter.loadAndConvertIfNecessary(jsonPath);
         if(layout != null) {
