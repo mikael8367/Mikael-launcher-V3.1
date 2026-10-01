@@ -303,6 +303,24 @@ p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
 s=s.replace('private QuickSettingSideDialog mQuickSettingSideDialog;',
 '''private QuickSettingSideDialog mQuickSettingSideDialog;
     private TextView mMikaelRamOverlay;
+    private TextView mMikaelFpsOverlay;
+    private long mMikaelFpsFrames;
+    private long mMikaelFpsWindowStart;
+    private boolean mMikaelFpsEnabled;
+    private final android.view.Choreographer.FrameCallback mMikaelFpsCallback = frameTimeNanos -> {
+        if (!mMikaelFpsEnabled) return;
+        mMikaelFpsFrames++;
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (mMikaelFpsWindowStart == 0) mMikaelFpsWindowStart = now;
+        long elapsed = now - mMikaelFpsWindowStart;
+        if (elapsed >= 1000 && mMikaelFpsOverlay != null) {
+            float fps = mMikaelFpsFrames * 1000f / elapsed;
+            mMikaelFpsOverlay.setText(String.format(java.util.Locale.US, "FPS: %.0f", fps));
+            mMikaelFpsFrames = 0;
+            mMikaelFpsWindowStart = now;
+        }
+        android.view.Choreographer.getInstance().postFrameCallback(this);
+    };
     private final Runnable mMikaelRamUpdater = new Runnable() {
         @Override public void run() {
             if (mMikaelRamOverlay == null) return;
@@ -334,6 +352,20 @@ methods='''    private void setupMikaelPerformanceOverlay() {
         lp.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
         lp.setMargins(12, 12, 0, 0);
         content.addView(mMikaelRamOverlay, lp);
+
+        mMikaelFpsOverlay = new TextView(this);
+        mMikaelFpsOverlay.setTextColor(Color.WHITE);
+        mMikaelFpsOverlay.setTextSize(13f);
+        mMikaelFpsOverlay.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        mMikaelFpsOverlay.setBackgroundColor(0x99000000);
+        mMikaelFpsOverlay.setPadding(12, 6, 12, 6);
+        mMikaelFpsOverlay.setText("FPS: --");
+        mMikaelFpsOverlay.setVisibility(View.GONE);
+        android.widget.FrameLayout.LayoutParams fpsLp = new android.widget.FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        fpsLp.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+        fpsLp.setMargins(12, 56, 0, 0);
+        content.addView(mMikaelFpsOverlay, fpsLp);
     }
 
     private void setMikaelRamOverlayEnabled(boolean enabled) {
@@ -348,12 +380,18 @@ methods='''    private void setupMikaelPerformanceOverlay() {
     }
 
     private void setMikaelMinecraftFpsEnabled(boolean enabled) {
-        // Minecraft itself owns the FPS counter. F3 is the vanilla debug overlay,
-        // so the value shown comes from Minecraft rather than an Android-side estimate.
+        mMikaelFpsEnabled = enabled;
+        if (mMikaelFpsOverlay == null) return;
         if (enabled) {
-            CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_F3);
+            mMikaelFpsFrames = 0;
+            mMikaelFpsWindowStart = android.os.SystemClock.elapsedRealtime();
+            mMikaelFpsOverlay.setVisibility(View.VISIBLE);
+            android.view.Choreographer.getInstance().removeFrameCallback(mMikaelFpsCallback);
+            android.view.Choreographer.getInstance().postFrameCallback(mMikaelFpsCallback);
         } else {
-            CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_F3);
+            android.view.Choreographer.getInstance().removeFrameCallback(mMikaelFpsCallback);
+            mMikaelFpsOverlay.setVisibility(View.GONE);
+            mMikaelFpsOverlay.setText("FPS: --");
         }
     }
 
@@ -383,6 +421,7 @@ s=s.replace('''    protected void onDestroy() {
         ContextExecutor.clearActivity();
     }''','''    protected void onDestroy() {
         Tools.MAIN_HANDLER.removeCallbacks(mMikaelRamUpdater);
+        android.view.Choreographer.getInstance().removeFrameCallback(mMikaelFpsCallback);
         super.onDestroy();
         ContextExecutor.clearActivity();
     }''',1)
