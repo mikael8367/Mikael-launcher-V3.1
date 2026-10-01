@@ -1399,7 +1399,7 @@ public class MikaelHomeActivity extends BaseActivity {
                 InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
                 if (imm != null) imm.hideSoftInputFromWindow(password.getWindowToken(), 0);
                 v.setEnabled(false);
-                v.setText("Entrando...");
+                ((android.widget.Button) v).setText("Entrando...");
                 authenticateElyBy(login, pass, null, dialog, username, password);
             });
             username.requestFocus();
@@ -1478,7 +1478,7 @@ public class MikaelHomeActivity extends BaseActivity {
                     return;
                 }
                 v.setEnabled(false);
-                v.setText("Verificando...");
+                ((android.widget.Button) v).setText("Verificando...");
                 authenticateElyBy(username, password, value, dialog, usernameField, passwordField);
             });
             code.requestFocus();
