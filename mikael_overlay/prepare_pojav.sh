@@ -249,11 +249,11 @@ s=s.replace('private Switch mGyroSwitch, mGyroXSwitch, mGyroYSwitch, mGestureSwi
 s=s.replace('private boolean mOriginalGyroEnabled, mOriginalGyroXEnabled, mOriginalGyroYEnabled, mOriginalGestureDisabled;',
             'private boolean mOriginalGyroEnabled, mOriginalGyroXEnabled, mOriginalGyroYEnabled, mOriginalGestureDisabled, mOriginalMikaelFps, mOriginalMikaelRam;')
 s=s.replace('mGestureSwitch = mDialogContent.findViewById(R.id.checkboxGesture);',
-            'mGestureSwitch = mDialogContent.findViewById(R.id.checkboxGesture);\\n        mMikaelFpsSwitch = mDialogContent.findViewById(R.id.mikael_show_fps);\\n        mMikaelRamSwitch = mDialogContent.findViewById(R.id.mikael_show_ram);')
+            'mGestureSwitch = mDialogContent.findViewById(R.id.checkboxGesture);\n        mMikaelFpsSwitch = mDialogContent.findViewById(R.id.mikael_show_fps);\n        mMikaelRamSwitch = mDialogContent.findViewById(R.id.mikael_show_ram);')
 s=s.replace('mOriginalGestureDisabled = PREF_DISABLE_GESTURES;',
-            'mOriginalGestureDisabled = PREF_DISABLE_GESTURES;\\n        mOriginalMikaelFps = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_fps", false);\\n        mOriginalMikaelRam = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_ram", false);')
+            'mOriginalGestureDisabled = PREF_DISABLE_GESTURES;\n        mOriginalMikaelFps = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_fps", false);\n        mOriginalMikaelRam = LauncherPreferences.DEFAULT_PREF.getBoolean("mikael_show_ram", false);')
 s=s.replace('mGestureSwitch.setChecked(mOriginalGestureDisabled);',
-            'mGestureSwitch.setChecked(mOriginalGestureDisabled);\\n        mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\\n        mMikaelRamSwitch.setChecked(mOriginalMikaelRam);')
+            'mGestureSwitch.setChecked(mOriginalGestureDisabled);\n        mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\n        mMikaelRamSwitch.setChecked(mOriginalMikaelRam);')
 anchor='        mGestureSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {'
 idx=s.index(anchor)
 # Insert the two listeners immediately before gesture listener.
@@ -270,10 +270,10 @@ listeners='''        mMikaelFpsSwitch.setOnCheckedChangeListener((buttonView, is
 '''
 s=s[:idx]+listeners+s[idx:]
 s=s.replace('mGestureSwitch.setOnCheckedChangeListener(null);',
-            'mGestureSwitch.setOnCheckedChangeListener(null);\\n        mMikaelFpsSwitch.setOnCheckedChangeListener(null);\\n        mMikaelRamSwitch.setOnCheckedChangeListener(null);')
+            'mGestureSwitch.setOnCheckedChangeListener(null);\n        mMikaelFpsSwitch.setOnCheckedChangeListener(null);\n        mMikaelRamSwitch.setOnCheckedChangeListener(null);')
 s=s.replace('PREF_DISABLE_GESTURES = mOriginalGestureDisabled;',
-            'PREF_DISABLE_GESTURES = mOriginalGestureDisabled;\\n            mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\\n            mMikaelRamSwitch.setChecked(mOriginalMikaelRam);\\n            onMikaelFpsChanged(mOriginalMikaelFps);\\n            onMikaelRamChanged(mOriginalMikaelRam);')
-anchor2='    /**\\n     * Called when the resolution is changed.'
+            'PREF_DISABLE_GESTURES = mOriginalGestureDisabled;\n            mMikaelFpsSwitch.setChecked(mOriginalMikaelFps);\n            mMikaelRamSwitch.setChecked(mOriginalMikaelRam);\n            onMikaelFpsChanged(mOriginalMikaelFps);\n            onMikaelRamChanged(mOriginalMikaelRam);')
+anchor2='    /**\n     * Called when the resolution is changed.'
 methods='''    /** Called when the Mikael FPS toggle changes. */
     public void onMikaelFpsChanged(boolean enabled) {}
 
