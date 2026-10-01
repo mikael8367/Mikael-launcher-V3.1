@@ -136,6 +136,7 @@ public class MikaelHomeActivity extends BaseActivity {
         super.onCreate(state);
         prefs = getSharedPreferences("mikael_launcher", MODE_PRIVATE);
         try { MoJsonDownloader.prepareSubstitutionMap(getAssets()); } catch (Throwable ignored) {}
+        ensureCacioComponents();
         ensureDefaultControlLayout();
         setContentView(R.layout.activity_mikael_launcher);
         setupPojavFragmentHost();
@@ -177,6 +178,41 @@ public class MikaelHomeActivity extends BaseActivity {
      * has no custom control layout. Upstream generates this layout from the
      * CustomControls(Context) constructor; it is not an Android asset.
      */
+    /**
+     * Prepare Caciocavallo before GameActivity starts. The upstream component
+     * unpacker is asynchronous, but Mikael launches GameActivity directly;
+     * starting Java 8 before these JARs exist causes CTCToolkit to be missing.
+     */
+    private void ensureCacioComponents() {
+        try {
+            String[][] components = new String[][] {
+                    {"caciocavallo", "ResConfHack.jar"},
+                    {"caciocavallo", "cacio-androidnw--9ba6264d8c-1.jar"},
+                    {"caciocavallo", "cacio-shared--9ba6264d8c-1.jar"},
+                    {"caciocavallo17", "cacio-tta-d4553e5689-jar-with-dependencies.jar"}
+            };
+
+            for (String[] component : components) {
+                File targetDir = new File(Tools.DIR_GAME_HOME, component[0]);
+                if (!targetDir.exists() && !targetDir.mkdirs()) {
+                    throw new IOException("Não foi possível criar " + targetDir.getAbsolutePath());
+                }
+                File target = new File(targetDir, component[1]);
+                if (!target.isFile() || target.length() == 0) {
+                    Tools.copyAssetFile(
+                            getAssets(),
+                            "components/" + component[0] + "/" + component[1],
+                            target,
+                            true
+                    );
+                }
+            }
+        } catch (Throwable error) {
+            android.util.Log.e("MikaelCacio",
+                    "Não foi possível preparar o Caciocavallo.", error);
+        }
+    }
+
     private void ensureDefaultControlLayout() {
         try {
             if (!Tools.isValidString(Tools.CTRLDEF_FILE)) return;
