@@ -282,6 +282,16 @@ methods='''    /** Called when the Mikael FPS toggle changes. */
 
 '''
 s=s.replace(anchor2,methods+anchor2,1)
+if "public void onMikaelFpsChanged(boolean enabled)" not in s:
+    marker = "    public abstract void onButtonTransparencyChanged();"
+    extra = """    public void onMikaelFpsChanged(boolean enabled) {}
+
+    public void onMikaelRamChanged(boolean enabled) {}
+
+"""
+    if marker not in s:
+        raise SystemExit("QuickSetting callback marker not found")
+    s=s.replace(marker, marker + extra, 1)
 p.write_text(s,encoding="utf-8")
 PY
 
@@ -341,7 +351,7 @@ methods='''    private void setupMikaelPerformanceOverlay() {
         // Minecraft itself owns the FPS counter. F3 is the vanilla debug overlay,
         // so the value shown comes from Minecraft rather than an Android-side estimate.
         if (enabled) {
-            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F3);
+            CallbackBridge.sendKeyPress(KeyEvent.KEYCODE_F3);
         } else {
             CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F3);
         }
