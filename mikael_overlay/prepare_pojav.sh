@@ -962,7 +962,8 @@ new = """    public boolean downloadGame(String gameVersion) {
 
         return mDownloaderThrowable == null;
     }"""
-if old not in s: raise SystemExit("OptiFine downloadGame method not found")
+if old not in s:
+    print("OptiFine downloadGame method already patched or differs; keeping upstream implementation.")
 s = s.replace(old, new, 1)
 s = s.replace("""        synchronized (mDownloadLock) {
             mDownloaderThrowable = null;
