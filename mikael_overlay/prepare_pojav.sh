@@ -849,4 +849,259 @@ s = s.replace("new Intent(context, LauncherActivity.class)", "new Intent(context
 p.write_text(s, encoding="utf-8")
 PY
 
+
+# Deep OptiFine hardening: validate metadata/URLs, avoid infinite waits and preserve
+# installer state when post-install metadata is not ready yet.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OptiFineDownloadTask.java" \
+          "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OptiFineUtils.java" \
+          "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OFDownloadPageScraper.java" \
+          "$POJAV/src/main/java/net/kdt/pojavlaunch/modloaders/OptiFineScraper.java" <<'PY'
+from pathlib import Path
+import sys
+
+task, utils, scraper, page_scraper = map(Path, sys.argv[1:])
+
+p = task
+s = p.read_text(encoding="utf-8")
+s = s.replace("import java.util.regex.Matcher;\nimport java.util.regex.Pattern;",
+              "import java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.TimeUnit;\nimport java.util.regex.Matcher;\nimport java.util.regex.Pattern;")
+s = s.replace("    private final Object mDownloadLock = new Object();\n    private Throwable mDownloaderThrowable;",
+              "    private final Object mDownloadLock = new Object();\n    private volatile CountDownLatch mDownloadLatch;\n    private volatile Throwable mDownloaderThrowable;")
+old = """    public void prepareForInstall() throws Exception {
+        String gameVersion = determineGameVersion();
+        if(gameVersion == null) return;
+        if(!downloadGame(gameVersion)) {
+            if(mDownloaderThrowable instanceof Exception) {
+                throw (Exception) mDownloaderThrowable;
+            }else {
+                throw new Exception(mDownloaderThrowable);
+            }
+        }
+    }"""
+new = """    public void prepareForInstall() throws Exception {
+        if (mOptiFineVersion == null) {
+            throw new IllegalArgumentException("Versão do OptiFine não informada.");
+        }
+
+        String gameVersion = determineGameVersion();
+        if (gameVersion == null || gameVersion.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Não foi possível identificar a versão do Minecraft para este OptiFine.");
+        }
+
+        if (!downloadGame(gameVersion)) {
+            Throwable error = mDownloaderThrowable;
+            if (error instanceof Exception) {
+                throw (Exception) error;
+            }
+            if (error != null) {
+                throw new Exception("Falha ao preparar o Minecraft " + gameVersion, error);
+            }
+            throw new Exception(
+                    "Não foi possível preparar os arquivos do Minecraft " + gameVersion + ".");
+        }
+    }"""
+if old not in s: raise SystemExit("OptiFine prepare method not found")
+s = s.replace(old, new, 1)
+old = """    public boolean downloadGame(String gameVersion) {
+        // the string is always normalized
+        JVersionList.Version versionMeta = MoJsonExtras.getListedVersion(gameVersion);
+        if(versionMeta == null) return false;
+        try {
+            synchronized (mDownloadLock) {
+                new MoJsonDownloader().start(null, versionMeta, gameVersion, this);
+                mDownloadLock.wait();
+            }
+        }catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return mDownloaderThrowable == null;
+    }"""
+new = """    public boolean downloadGame(String gameVersion) {
+        // The string is always normalized.
+        JVersionList.Version versionMeta = MoJsonExtras.getListedVersion(gameVersion);
+        if (versionMeta == null) {
+            mDownloaderThrowable = new java.io.IOException(
+                    "Os metadados do Minecraft " + gameVersion + " não estão disponíveis.");
+            return false;
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        mDownloadLatch = latch;
+        mDownloaderThrowable = null;
+
+        try {
+            new MoJsonDownloader().start(null, versionMeta, gameVersion, this);
+            if (!latch.await(15, TimeUnit.MINUTES)) {
+                mDownloaderThrowable = new java.io.IOException(
+                        "Tempo limite ao preparar o Minecraft " + gameVersion + ".");
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            mDownloaderThrowable = e;
+            return false;
+        } catch (Throwable e) {
+            mDownloaderThrowable = e;
+            return false;
+        } finally {
+            mDownloadLatch = null;
+        }
+
+        return mDownloaderThrowable == null;
+    }"""
+if old not in s: raise SystemExit("OptiFine downloadGame method not found")
+s = s.replace(old, new, 1)
+s = s.replace("""        synchronized (mDownloadLock) {
+            mDownloaderThrowable = null;
+            mDownloadLock.notifyAll();
+        }""",
+              """        mDownloaderThrowable = null;
+        CountDownLatch latch = mDownloadLatch;
+        if (latch != null) latch.countDown();""", 1)
+s = s.replace("""        synchronized (mDownloadLock) {
+            mDownloaderThrowable = throwable;
+            mDownloadLock.notifyAll();
+        }""",
+              """        mDownloaderThrowable = throwable != null
+                ? throwable
+                : new java.io.IOException("O download do Minecraft falhou sem uma causa informada.");
+        CountDownLatch latch = mDownloadLatch;
+        if (latch != null) latch.countDown();""", 1)
+p.write_text(s, encoding="utf-8")
+
+p = utils
+s = p.read_text(encoding="utf-8")
+old = """    public static InstanceInstaller createInstaller(OptiFineVersion version) {
+        int installerHash = Objects.hash(version.versionName, version.gameVersion);"""
+new = """    public static InstanceInstaller createInstaller(OptiFineVersion version) {
+        if (version == null) throw new IllegalArgumentException("Versão do OptiFine inválida.");
+        if (!Tools.isValidString(version.gameVersion)) {
+            throw new IllegalArgumentException("A versão do Minecraft do OptiFine está vazia.");
+        }
+        if (!Tools.isValidString(version.versionName)) {
+            throw new IllegalArgumentException("O nome da versão do OptiFine está vazio.");
+        }
+        if (!Tools.isValidString(version.downloadUrl)) {
+            throw new IllegalArgumentException("O link de download do OptiFine não está disponível.");
+        }
+        int installerHash = Objects.hash(version.versionName, version.gameVersion);"""
+if old not in s: raise SystemExit("OptiFineUtils createInstaller anchor not found")
+s=s.replace(old,new,1)
+p.write_text(s,encoding="utf-8")
+
+p = page_scraper
+s = p.read_text(encoding="utf-8")
+s = s.replace("""        htmlCleaner.clean(new URL(url)).traverse(this);
+        return mDownloadFullUrl;""",
+              """        if (url == null || url.trim().isEmpty()) {
+            throw new IOException("URL da página de download do OptiFine vazia.");
+        }
+        htmlCleaner.clean(new URL(url)).traverse(this);
+        if (mDownloadFullUrl == null || mDownloadFullUrl.trim().isEmpty()) {
+            throw new IOException("Não foi possível encontrar o link final do instalador do OptiFine.");
+        }
+        return mDownloadFullUrl;""", 1)
+p.write_text(s,encoding="utf-8")
+
+p = scraper
+s = p.read_text(encoding="utf-8")
+s = s.replace("""        }
+        mListInProgress.add(optiFineVersion);
+    }""",
+              """        }
+        if (optiFineVersion.versionName != null
+                && !optiFineVersion.versionName.trim().isEmpty()
+                && optiFineVersion.downloadUrl != null
+                && !optiFineVersion.downloadUrl.trim().isEmpty()) {
+            mListInProgress.add(optiFineVersion);
+        }
+    }""", 1)
+p.write_text(s,encoding="utf-8")
+PY
+
+# Preserve installer recovery state until the post-install profile actually exposes a target version.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/instances/InstanceInstaller.java" \
+          "$POJAV/src/main/java/net/kdt/pojavlaunch/instances/profcompat/ProfileWatcher.java" <<'PY'
+from pathlib import Path
+import sys
+installer, watcher = map(Path, sys.argv[1:])
+
+p = installer
+s = p.read_text(encoding="utf-8")
+old = """    public static void postInstallCheck(AssetManager assetManager) throws IOException {
+        if(!sLastInstallInfo.exists() || !sLastInstallInfo.isFile()) return;
+        InstanceInstaller lastInstaller = JSONUtils.readFromFile(sLastInstallInfo, InstanceInstaller.class);
+        boolean ignored = lastInstaller.installerJar().delete();
+        if(!sLastInstallInfo.delete()) throw new IOException("Failed to delete mod installer info");
+        String targetVersionId = ProfileWatcher.consumePendingVersion(assetManager);
+        if(targetVersionId == null) return;
+        for(Instance instance : Instances.loadAllInstances()) {
+            if(!lastInstaller.equals(instance.installer)) continue;
+            instance.installer = null;
+            instance.versionId = targetVersionId;
+            instance.write();
+        }
+        ExtraCore.setValue(ExtraConstants.REFRESH_VERSION_SPINNER, null);
+    }"""
+new = """    public static void postInstallCheck(AssetManager assetManager) throws IOException {
+        if(!sLastInstallInfo.exists() || !sLastInstallInfo.isFile()) return;
+
+        InstanceInstaller lastInstaller = JSONUtils.readFromFile(
+                sLastInstallInfo, InstanceInstaller.class);
+        if (lastInstaller == null) {
+            throw new IOException("Não foi possível ler o estado do último instalador.");
+        }
+
+        String targetVersionId = ProfileWatcher.consumePendingVersion(assetManager);
+        // The installer may still be finishing or writing launcher_profiles.json.
+        // Keep the recovery state so a later onResume() can complete the install.
+        if(targetVersionId == null || targetVersionId.trim().isEmpty()) return;
+
+        lastInstaller.installerJar().delete();
+        if(!sLastInstallInfo.delete()) {
+            throw new IOException("Falha ao apagar o estado do instalador.");
+        }
+
+        for(Instance instance : Instances.loadAllInstances()) {
+            if(!lastInstaller.equals(instance.installer)) continue;
+            instance.installer = null;
+            instance.versionId = targetVersionId;
+            instance.write();
+        }
+        ExtraCore.setValue(ExtraConstants.REFRESH_VERSION_SPINNER, null);
+    }"""
+if old not in s: raise SystemExit("InstanceInstaller postInstallCheck not found")
+s=s.replace(old,new,1)
+p.write_text(s,encoding="utf-8")
+
+p = watcher
+s = p.read_text(encoding="utf-8")
+old = """    public static String consumePendingVersion(AssetManager assetManager) throws IOException {
+        Profiles store;
+        try(FileReader fileReader = new FileReader(sLauncherProfiles)) {
+            store = Tools.GLOBAL_GSON.fromJson(fileReader, Profiles.class);
+        }
+        Map<String, ProfileBody> profiles = store.profiles;
+        String versionId = null;"""
+new = """    public static String consumePendingVersion(AssetManager assetManager) throws IOException {
+        if(!sLauncherProfiles.isFile() || !sLauncherProfiles.canRead()) {
+            return null;
+        }
+
+        Profiles store;
+        try(FileReader fileReader = new FileReader(sLauncherProfiles)) {
+            store = Tools.GLOBAL_GSON.fromJson(fileReader, Profiles.class);
+        }
+        if(store == null || store.profiles == null || store.profiles.isEmpty()) {
+            return null;
+        }
+
+        Map<String, ProfileBody> profiles = store.profiles;
+        String versionId = null;"""
+if old not in s: raise SystemExit("ProfileWatcher anchor not found")
+s=s.replace(old,new,1)
+p.write_text(s,encoding="utf-8")
+PY
+
 echo "Mikael overlay prepared successfully."
