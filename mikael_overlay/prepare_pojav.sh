@@ -492,6 +492,7 @@ PY
 
 # Add Mikael performance quick settings: launcher-side FPS GUI and a live JVM RAM overlay.
 # Explicit APK build trigger validation.
+# Current build includes control recovery, launcher lifecycle isolation, and launcher-side FPS GUI.
 # Touch-control + Ely.by hardening build marker.
 python3 - "$POJAV/src/main/res/layout/dialog_quick_setting.xml" <<'PY'
 import sys
