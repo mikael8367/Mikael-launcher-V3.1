@@ -177,6 +177,7 @@ public class MikaelHomeActivity extends BaseActivity {
         refreshDashboard();
         if (state == null && !prefs.getBoolean("optifine_1122_setup_started", false)) {
             openFirstRunOptiFine();
+        }
     }
 
     /**
