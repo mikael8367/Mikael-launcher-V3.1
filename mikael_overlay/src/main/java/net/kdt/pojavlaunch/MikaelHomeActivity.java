@@ -61,6 +61,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1342,23 +1344,282 @@ public class MikaelHomeActivity extends BaseActivity {
     }
 
     private void showMods() {
-        Instance instance=Instances.loadSelectedInstance(); File root=instance==null?Instances.SHARED_DATA_DIRECTORY:instance.getGameDirectory();
-        File dir=new File(root,"mods"); if(!dir.exists())dir.mkdirs();
-        File[] files=dir.listFiles((f,n)->n.endsWith(".jar")||n.endsWith(".jar.disabled")); if(files==null)files=new File[0];
-        Arrays.sort(files, Comparator.comparing(File::getName,String.CASE_INSENSITIVE_ORDER));
-        String[] items=new String[files.length]; for(int i=0;i<files.length;i++)items[i]=(files[i].getName().endsWith(".disabled")?"⏸ ":"▶ ")+files[i].getName();
-        final File[] copy=files;
-        new AlertDialog.Builder(this).setTitle("Mods").setItems(items,(d,w)->{
-                    File f=copy[w];
+        Instance instance = Instances.loadSelectedInstance();
+        File root = instance == null ? Instances.SHARED_DATA_DIRECTORY : instance.getGameDirectory();
+        File dir = new File(root, "mods");
+        if (!dir.exists()) dir.mkdirs();
+
+        File[] files = dir.listFiles((f, n) -> n.endsWith(".jar") || n.endsWith(".jar.disabled"));
+        if (files == null) files = new File[0];
+        Arrays.sort(files, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
+
+        String version = minecraftVersionForMods(instance);
+        String[] items = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            items[i] = (files[i].getName().endsWith(".disabled") ? "⏸ " : "▶ ") + files[i].getName();
+        }
+
+        final File[] copy = files;
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("🧩 Mods • Minecraft " + version)
+                .setMessage(files.length == 0
+                        ? "Nenhum mod instalado nesta versão.\n\nUse “Baixar mods” para procurar vários mods compatíveis com a versão selecionada."
+                        : "Os mods abaixo pertencem à versão selecionada. Você pode ativar/desativar cada um.")
+                .setItems(items, (d, w) -> {
+                    File f = copy[w];
                     File target = f.getName().endsWith(".disabled")
-                            ? new File(dir,f.getName().substring(0,f.getName().length()-9))
-                            : new File(dir,f.getName()+".disabled");
-                    if (!f.renameTo(target)) Toast.makeText(this,"Não foi possível alterar o estado do mod.",Toast.LENGTH_SHORT).show();
+                            ? new File(dir, f.getName().substring(0, f.getName().length() - 9))
+                            : new File(dir, f.getName() + ".disabled");
+                    if (!f.renameTo(target)) {
+                        Toast.makeText(this, "Não foi possível alterar o estado do mod.", Toast.LENGTH_SHORT).show();
+                    }
                     showMods();
                 })
-                .setNeutralButton("Importar .jar",(d,w)->modPicker.launch(new String[]{"application/java-archive","application/octet-stream"}))
-                .setNegativeButton("Abrir pasta",(d,w)->openPath(dir))
-                .setPositiveButton("Fechar",null).show();
+                .setNegativeButton("Abrir pasta", (d, w) -> openPath(dir))
+                .setNeutralButton("Importar .jar", (d, w) ->
+                        modPicker.launch(new String[]{"application/java-archive", "application/octet-stream"}))
+                .setPositiveButton("Baixar mods", (d, w) -> showCurseForgeMods(version))
+                .create();
+        dialog.show();
+    }
+
+    private String minecraftVersionForMods(Instance instance) {
+        String version = instance == null ? null : instance.versionId;
+        if (!Tools.isValidString(version)) return "latest_release";
+        version = MoJsonExtras.normalizeVersionId(version);
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("([0-9]+\\\\.[0-9]+(?:\\\\.[0-9]+)?(?:[-.]pre[0-9]+)?(?:[-.]rc[0-9]+)?)")
+                .matcher(version);
+        return matcher.find() ? matcher.group(1) : version;
+    }
+
+    private void showCurseForgeMods(String minecraftVersion) {
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("Nome do mod");
+        input.setPadding(24, 8, 24, 8);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("⬇️ Baixar mods • CurseForge")
+                .setMessage("Minecraft " + minecraftVersion + "\nVocê poderá selecionar vários mods e baixar todos de uma vez.")
+                .setView(input)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Pesquisar", null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String query = input.getText().toString().trim();
+            if (query.length() < 2) {
+                input.setError("Digite pelo menos 2 caracteres");
+                return;
+            }
+            dialog.dismiss();
+            searchCurseForgeMods(query, minecraftVersion);
+        }));
+        dialog.show();
+        input.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+    }
+
+    private void searchCurseForgeMods(String query, String minecraftVersion) {
+        String apiKey;
+        try {
+            apiKey = getString(R.string.curseforge_api_key).trim();
+        } catch (Throwable error) {
+            showError("A API do CurseForge não está configurada.");
+            return;
+        }
+        if (!Tools.isValidString(apiKey) || "DUMMY".equalsIgnoreCase(apiKey)) {
+            showError("A API do CurseForge não está configurada no build. Configure CURSEFORGE_API_KEY antes de gerar o APK.");
+            return;
+        }
+
+        setLoading(8, "Pesquisando mods para Minecraft " + minecraftVersion + "...");
+        new Thread(() -> {
+            try {
+                SearchFilters filters = new SearchFilters();
+                filters.isModpack = false;
+                filters.name = query;
+                filters.mcVersion = minecraftVersion;
+
+                CurseforgeApi api = new CurseforgeApi(apiKey);
+                SearchResult result = api.searchMod(filters);
+                if (result == null || result.results == null || result.results.length == 0) {
+                    runOnUiThread(() -> showError("Nenhum mod compatível com Minecraft " + minecraftVersion + " foi encontrado."));
+                    return;
+                }
+
+                ArrayList<ModItem> mods = new ArrayList<>();
+                for (ModItem item : result.results) {
+                    if (item != null && !item.isModpack) mods.add(item);
+                }
+                runOnUiThread(() -> showCurseForgeModResults(api, mods, minecraftVersion));
+            } catch (Throwable error) {
+                runOnUiThread(() -> showError("Falha ao pesquisar mods no CurseForge: " + safe(error)));
+            }
+        }, "mikael-curseforge-mod-search").start();
+    }
+
+    private void showCurseForgeModResults(CurseforgeApi api, ArrayList<ModItem> mods, String minecraftVersion) {
+        if (mods == null || mods.isEmpty()) {
+            showError("Nenhum mod disponível para Minecraft " + minecraftVersion + ".");
+            return;
+        }
+
+        int count = Math.min(mods.size(), 30);
+        String[] names = new String[count];
+        for (int i = 0; i < count; i++) {
+            ModItem item = mods.get(i);
+            names[i] = "⬜ " + item.title;
+        }
+
+        boolean[] checked = new boolean[count];
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("🧩 Selecione os mods")
+                .setMessage("Minecraft " + minecraftVersion + " • selecione quantos quiser")
+                .setMultiChoiceItems(names, checked, (d, which, isChecked) -> {
+                    checked[which] = isChecked;
+                    names[which] = (isChecked ? "☑ " : "⬜ ") + mods.get(which).title;
+                    ((AlertDialog) d).getListView().getAdapter();
+                })
+                .setNegativeButton("Voltar", null)
+                .setPositiveButton("Baixar selecionados", null)
+                .create();
+
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            ArrayList<ModItem> selected = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                if (checked[i]) selected.add(mods.get(i));
+            }
+            if (selected.isEmpty()) {
+                Toast.makeText(this, "Selecione pelo menos um mod.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            downloadSelectedCurseForgeMods(api, selected, minecraftVersion);
+        }));
+        dialog.show();
+    }
+
+    private void downloadSelectedCurseForgeMods(CurseforgeApi api, ArrayList<ModItem> selected, String minecraftVersion) {
+        Instance instance = Instances.loadSelectedInstance();
+        File root = instance == null ? Instances.SHARED_DATA_DIRECTORY : instance.getGameDirectory();
+        File modsDir = new File(root, "mods");
+        if (!modsDir.exists() && !modsDir.mkdirs()) {
+            showError("Não foi possível criar a pasta de mods.");
+            return;
+        }
+
+        setLoading(12, "Preparando " + selected.size() + " mods...");
+        new Thread(() -> {
+            int success = 0;
+            ArrayList<String> failures = new ArrayList<>();
+
+            for (int i = 0; i < selected.size(); i++) {
+                ModItem item = selected.get(i);
+                final int current = i + 1;
+                final int total = selected.size();
+                final int progress = 12 + (int) ((i / (float) total) * 78);
+                runOnUiThread(() -> setLoading(progress, "Preparando " + current + "/" + total + "..."));
+
+                try {
+                    ModDetail detail = api.getModDetails(item);
+                    int index = findCompatibleModVersion(detail, minecraftVersion);
+                    if (index < 0) {
+                        failures.add(item.title + " (sem arquivo compatível)");
+                        continue;
+                    }
+
+                    downloadCurseForgeModFile(api, item, detail, index, modsDir);
+                    success++;
+                } catch (Throwable error) {
+                    failures.add(item.title);
+                    android.util.Log.e("MikaelMods", "Falha ao baixar " + item.title, error);
+                }
+            }
+
+            final int downloaded = success;
+            final ArrayList<String> failed = failures;
+            runOnUiThread(() -> {
+                refreshDashboard();
+                loadStatus.setText("Mods instalados • " + downloaded + "/" + selected.size());
+                if (failed.isEmpty()) {
+                    Toast.makeText(this, downloaded + " mod(s) instalado(s) em Minecraft " + minecraftVersion + ".", Toast.LENGTH_LONG).show();
+                } else {
+                    showError(downloaded + " mod(s) instalado(s). Falharam: " + joinNames(failed));
+                }
+            });
+        }, "mikael-curseforge-mod-batch").start();
+    }
+
+    private int findCompatibleModVersion(ModDetail detail, String minecraftVersion) {
+        if (detail == null || detail.mcVersionNames == null || detail.versionUrls == null) return -1;
+        for (int i = 0; i < detail.mcVersionNames.length; i++) {
+            if (minecraftVersion.equals(detail.mcVersionNames[i])
+                    && Tools.isValidString(detail.versionUrls[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void downloadCurseForgeModFile(CurseforgeApi api, ModItem item, ModDetail detail, int index, File modsDir) throws IOException {
+        String url = detail.versionUrls[index];
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setConnectTimeout(20000);
+        connection.setReadTimeout(120000);
+        connection.setRequestProperty("x-api-key", getString(R.string.curseforge_api_key).trim());
+        connection.setRequestProperty("User-Agent", "Mikael-Launcher-V3.1");
+        connection.setInstanceFollowRedirects(true);
+
+        int code = connection.getResponseCode();
+        if (code < 200 || code >= 300) {
+            connection.disconnect();
+            throw new IOException("CurseForge HTTP " + code);
+        }
+
+        String fileName = safeCurseForgeFileName(connection.getURL().getPath(), item.title);
+        File target = new File(modsDir, fileName);
+        int suffix = 2;
+        while (target.exists()) {
+            target = new File(modsDir, stripJar(fileName) + "-" + suffix++ + ".jar");
+        }
+
+        try (InputStream in = connection.getInputStream();
+             OutputStream out = new java.io.FileOutputStream(target)) {
+            byte[] buffer = new byte[16384];
+            int read;
+            while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+        } catch (Throwable error) {
+            if (target.isFile()) target.delete();
+            throw error;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private String safeCurseForgeFileName(String path, String fallback) {
+        String name = path == null ? "" : path.substring(path.lastIndexOf('/') + 1);
+        try {
+            name = java.net.URLDecoder.decode(name, StandardCharsets.UTF_8.name());
+        } catch (Throwable ignored) {}
+        name = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (!name.toLowerCase().endsWith(".jar")) name = fallback.replaceAll("[^A-Za-z0-9._-]", "_") + ".jar";
+        return name;
+    }
+
+    private String stripJar(String name) {
+        return name.toLowerCase().endsWith(".jar") ? name.substring(0, name.length() - 4) : name;
+    }
+
+    private String joinNames(ArrayList<String> names) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) builder.append(", ");
+            builder.append(names.get(i));
+        }
+        return builder.toString();
     }
 
     private void importMod(Uri uri) {
