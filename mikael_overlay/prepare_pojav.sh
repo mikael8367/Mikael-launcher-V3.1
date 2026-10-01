@@ -54,6 +54,7 @@ for suffix in ("*.xml", "*.java", "*.kt"):
                     File parent = target.getParentFile();
                     if (parent != null && !parent.exists()) parent.mkdirs();
                     CustomControls generated = new CustomControls(getContext());
+                    generated.mLayoutBitmaps = LayoutBitmaps.createEmpty();
                     generated.save(target.getAbsolutePath());
                     CustomControls repaired = LayoutConverter.loadAndConvertIfNecessary(size, target.getAbsolutePath());
                     loadLayout(repaired);
