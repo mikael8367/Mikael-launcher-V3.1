@@ -1085,8 +1085,6 @@ public class MikaelHomeActivity extends BaseActivity {
         if(root instanceof android.view.ViewGroup){ android.view.ViewGroup g=(android.view.ViewGroup)root; for(int i=0;i<g.getChildCount();i++)g.getChildAt(i).setVisibility(View.VISIBLE); }
     }
 
-    @Override public void onBackPressed(){ if(getSupportFragmentManager().getBackStackEntryCount()>0){getSupportFragmentManager().popBackStack();return;} super.onBackPressed(); }
-
     private void showForgeOptiFineInstaller() {
         // Combined installer: Minecraft -> Forge -> OptiFine.
         // The selected versions are kept together so OptiFine is installed on
