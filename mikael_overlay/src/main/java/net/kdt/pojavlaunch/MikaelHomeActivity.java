@@ -231,8 +231,11 @@ public class MikaelHomeActivity extends BaseActivity {
                 throw new IOException("Não foi possível criar a pasta de controles.");
             }
 
-            new net.kdt.pojavlaunch.customcontrols.CustomControls(this)
-                    .save(target.getAbsolutePath());
+            net.kdt.pojavlaunch.customcontrols.CustomControls controls =
+                    new net.kdt.pojavlaunch.customcontrols.CustomControls(this);
+            controls.mLayoutBitmaps =
+                    net.kdt.pojavlaunch.customcontrols.LayoutBitmaps.createEmpty();
+            controls.save(target.getAbsolutePath());
 
             if (!target.isFile() || target.length() == 0) {
                 throw new IOException("O controle padrão não foi criado.");
