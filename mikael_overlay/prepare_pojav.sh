@@ -380,6 +380,48 @@ accounts.write_text(s,encoding='utf-8')
 PY
 
 
+
+# Prevent the legacy force-close action from restarting LauncherActivity.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/Tools.java" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+old="""                        Tools.restartLauncherActivity(ctx);
+                        Tools.fullyExit();"""
+new="""                        try {
+                            if (ctx instanceof android.app.Activity) {
+                                android.app.Activity activity = (android.app.Activity) ctx;
+                                activity.finishAndRemoveTask();
+                            }
+                        } catch (Throwable ignored) {}
+                        Tools.fullyExit();"""
+if old in s: s=s.replace(old,new,1)
+p.write_text(s,encoding="utf-8")
+PY
+
+# Make the in-game exit action terminate the game activity instead of opening the legacy launcher.
+python3 - "$POJAV/src/main/java/net/kdt/pojavlaunch/game/GameActivity.java" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text(encoding="utf-8")
+old="""case 0: dialogForceClose(GameActivity.this); break;"""
+new="""case 0:
+    new android.app.AlertDialog.Builder(GameActivity.this)
+        .setMessage(R.string.mcn_exit_confirm)
+        .setNegativeButton(android.R.string.cancel, null)
+        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+            try {
+                GameActivity.this.finishAndRemoveTask();
+            } catch (Throwable ignored) {
+                GameActivity.this.finish();
+            }
+        }).show();
+    break;"""
+if old not in s: raise SystemExit("GameActivity exit action not found")
+s=s.replace(old,new,1)
+p.write_text(s,encoding="utf-8")
+PY
+
 # Add Mikael performance quick settings: launcher-side FPS GUI and a live JVM RAM overlay.
 python3 - "$POJAV/src/main/res/layout/dialog_quick_setting.xml" <<'PY'
 import sys
