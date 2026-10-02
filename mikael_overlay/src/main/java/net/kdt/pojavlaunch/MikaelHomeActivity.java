@@ -881,11 +881,18 @@ public class MikaelHomeActivity extends BaseActivity {
             return;
         }
         String[] items = new String[installed.size()];
-        String current = Instances.loadSelectedInstance() == null ? "" :
-                MoJsonExtras.normalizeVersionId(Instances.loadSelectedInstance().versionId);
+        Instance selectedInstance = Instances.loadSelectedInstance();
+        String current = selectedInstance == null ? "" :
+                MoJsonExtras.normalizeVersionId(selectedInstance.versionId);
+        String selectedName = selectedInstance == null ? "" : selectedInstance.name;
         for (int i = 0; i < installed.size(); i++) {
             String id = installed.get(i);
-            items[i] = id.equals(current) ? "✓ " + id + " • atual" : "○ " + id;
+            String suffix = "";
+            if (id.equals(current) && Tools.isValidString(selectedName)
+                    && selectedName.toLowerCase(java.util.Locale.ROOT).contains("optifine")) {
+                suffix = " • OptiFine";
+            }
+            items[i] = id.equals(current) ? "✓ " + id + suffix + " • atual" : "○ " + id;
         }
         new AlertDialog.Builder(this)
                 .setTitle("📦 Versões instaladas (" + installed.size() + ")")
@@ -980,9 +987,18 @@ public class MikaelHomeActivity extends BaseActivity {
         if (instance == null) return;
         String normalizedId = MoJsonExtras.normalizeVersionId(version.id);
         instance.versionId = normalizedId == null || normalizedId.isEmpty() ? version.id : normalizedId;
-        instance.maybeWrite();
         prefs.edit().putString("mikael_version_type", version.type == null ? "" : version.type).apply();
         refreshDashboard();
+
+        // Persist the selection off the UI thread. Some Android storage providers can
+        // block on synchronous instance writes and make the version picker appear frozen.
+        net.kdt.pojavlaunch.PojavApplication.sExecutorService.execute(() -> {
+            try {
+                instance.maybeWrite();
+            } catch (Throwable error) {
+                android.util.Log.e("MikaelVersions", "Falha ao salvar a versão selecionada.", error);
+            }
+        });
 
         new AlertDialog.Builder(this)
                 .setTitle("Versão selecionada")
