@@ -210,11 +210,6 @@ replacement = """\tpublic void loadLayout(CustomControls controlLayout) {
 \t\t\t\t\tdata.bitmapTag = null;
 \t\t\t\t}
 \t\t\t}
-\t\t\tfor(ControlData data : controlLayout.mJoystickDataList) {
-\t\t\t\tif(Tools.isValidString(data.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(data.bitmapTag) == null) {
-\t\t\t\t\tdata.bitmapTag = null;
-\t\t\t\t}
-\t\t\t}
 \t\t\tfor(ControlDrawerData drawer : controlLayout.mDrawerDataList) {
 \t\t\t\tif(drawer.orientation == null) drawer.orientation = ControlDrawerData.Orientation.LEFT;
 \t\t\t\tif(Tools.isValidString(drawer.properties.bitmapTag) && controlLayout.mLayoutBitmaps.getBitmap(drawer.properties.bitmapTag) == null) {
