@@ -1,4 +1,5 @@
 # APK build validation trigger
+# Requested APK build: controls + version picker fixes
 #!/usr/bin/env bash
 set -euo pipefail
 
