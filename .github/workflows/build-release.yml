@@ -6,6 +6,7 @@ on:
     paths:
       - 'mikael_overlay/**'
       - '.github/workflows/build-release.yml'
+  pull_request:
 
 permissions:
   contents: write
